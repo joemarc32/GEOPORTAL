@@ -1,0 +1,12 @@
+[
+  {
+    "metric": "CumUsed",
+    "group_by": "AREA",
+    "aggregation": "sum",
+    "chart": "bar",
+    "top_n": "10",
+    "top_mode": "top",
+    "date_from": "",
+    "date_to": ""
+  }
+]

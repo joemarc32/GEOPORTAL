@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TCWD GeoPortal & Analytics - Analytic Dashboard</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='materials/logo.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Add jQuery and jQuery UI for searchable dropdown -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+    <style>
+        .dashboard-sidebar label[for="groupBySelect"], .dashboard-sidebar label[for="aggSelect"] {
+            margin-top: 0.5em;
+        }
+        .data-table {
+            margin-top: 1em;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5em;
+        }
+        .searchable-dropdown-container {
+            margin-bottom: 1rem;
+        }
+        .searchable-dropdown-label {
+            font-weight: 500;
+            font-size: 1.05em;
+            margin-top: 0.3em;
+            margin-bottom: 0.2em;
+            display: block;
+        }
+        .ui-autocomplete {
+            max-height: 200px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 1100 !important;
+            background: #fff;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .ui-menu-item-wrapper.ui-state-active {
+            background: #2563eb !important;
+            color: #fff !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+    <div style="display: flex; align-items: center; gap:1.2rem;">
+      <img src="{{ url_for('static', filename='materials/logo.png') }}"
+           alt="TCWD Logo" style="height: 2.5rem;">
+      <span class="title">TCWD GeoPortal & Analytics</span>
+    </div>
+
+    <div class="header-buttons">
+      <a href="{{ url_for('index') }}"
+         class="btn secondary"
+         aria-label="Back to Homepage">
+        ← Back to Homepage
+      </a>
+      <a href="{{ url_for('logout') }}"
+         class="btn danger">
+        Logout
+      </a>
+    </div>
+  </div>
+
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar" role="navigation" aria-label="Dashboard Options">
+            <h3 style="margin-top:0;">Metric Options</h3>
+            <label for="metricSelect">Primary Metric:</label>
+            <select id="metricSelect" style="width:100%;margin-bottom:1rem;" aria-label="Primary Metric">
+                {% for col in primary_metric_options %}
+                    <option value="{{ col }}" {% if col in numeric_columns %}data-numeric="1"{% endif %}>{{ col }}</option>
+                {% endfor %}
+            </select>
+            <label for="groupBySelect">Group By:</label>
+            <select id="groupBySelect" style="width:100%;margin-bottom:1rem;" aria-label="Group By">
+                <option value="">None</option>
+                {% for col in group_by_options %}
+                    <option value="{{ col }}">{{ col }}</option>
+                {% endfor %}
+            </select>
+            <!-- Searchable Dropdown Container -->
+            <div class="searchable-dropdown-container">
+                <label class="searchable-dropdown-label" for="groupByValueInput" id="groupByValueLabel">Select Value:</label>
+                <input type="text" id="groupByValueInput" style="width:100%;" placeholder="All" aria-label="Group By Value">
+                <input type="hidden" id="groupByValueHidden" value="">
+            </div>
+            <label for="aggSelect">Aggregation:</label>
+            <select id="aggSelect" style="width:100%;margin-bottom:1rem;" aria-label="Aggregation">
+                <option value="sum">Sum</option>
+                <option value="avg">Average</option>
+                <option value="min">Min</option>
+                <option value="max">Max</option>
+                <option value="count">Count</option>
+            </select>
+            {% if date_column %}
+            <label>Date Range:</label>
+            <input type="date" id="dateFrom" style="width:48%;" aria-label="Date From">
+            <input type="date" id="dateTo" style="width:48%;" aria-label="Date To">
+            {% endif %}
+            <label for="chartTypeSelect">Chart Type:</label>
+            <select id="chartTypeSelect" style="width:100%;margin-bottom:1rem;" aria-label="Chart Type">
+                <option value="pie">Pie</option>
+                <option value="bar">Bar</option>
+                <option value="line">Line</option>
+                <option value="doughnut">Doughnut</option>
+            </select>
+            <label>Top N:</label>
+            <input type="number" id="topN" value="10" min="1" max="100" style="width:50px;" aria-label="Top N">
+            <select id="topMode" style="width:48%;" aria-label="Top/Bottom">
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+            </select>
+            <button id="refreshChartsBtn" class="btn accent" style="width:100%;margin-top:1em;">Refresh Charts</button>
+            <div class="preset-list" aria-label="Presets"></div>
+            <button id="savePresetBtn" class="btn secondary" style="width:100%;margin-top:0.5em;">Save Preset</button>
+            <form id="feedbackForm" class="feedback-form" aria-label="Feedback Form">
+                <label for="feedbackText">Feedback:</label>
+                <textarea id="feedbackText" rows="2" style="width:100%;" aria-label="Feedback"></textarea>
+                <button type="submit" class="btn accent" style="width:100%;margin-top:0.5em;">Send Feedback</button>
+            </form>
+        </div>
+        <div class="dashboard-charts">
+            <div class="alert-banner" id="alertBanner"></div>
+            <div class="kpi-cards" id="kpiCards"></div>
+            <div class="chart-card">
+                <h3 id="chartTitle">Chart</h3>
+                <div class="summary-stats" id="summaryStats"></div>
+                <div>
+                    <button class="btn accent export-btn" id="exportImgBtn" aria-label="Export Chart Image">Export Image</button>
+                    <button class="btn accent export-btn" id="exportCsvBtn" aria-label="Export Chart Data">Export CSV</button>
+                </div>
+                <div id="loadingSpinner">Loading...</div>
+                <canvas id="mainChart" aria-label="Main Chart"></canvas>
+                <div id="dataTable"></div>
+            </div>
+            <!-- Map Visualization REMOVED -->
+        </div>
+    </div>
+    <script>
+        let mainChart;
+        let chartData = {};
+        let currentPreset = null;
+        let debounceTimer = null;
+        let groupByValueOptions = ["All"];
+
+        function showSpinner() {
+            document.getElementById('loadingSpinner').style.display = '';
+            document.getElementById('mainChart').style.display = 'none';
+        }
+        function hideSpinner() {
+            document.getElementById('loadingSpinner').style.display = 'none';
+            document.getElementById('mainChart').style.display = '';
+        }
+
+        function updateKpiCards(summary) {
+            const kpiCards = document.getElementById('kpiCards');
+            kpiCards.innerHTML = '';
+            let kpis = [];
+            if (summary.group_by) {
+                kpis.push({ label: "Groups", value: summary.groups || 0 });
+                kpis.push({ label: "Total", value: summary.total || 0 });
+                kpis.push({ label: "Avg", value: summary.average || 0 });
+                kpis.push({ label: "Min", value: summary.min || 0 });
+                kpis.push({ label: "Max", value: summary.max || 0 });
+            } else {
+                kpis.push({ label: "Total", value: summary.total || 0 });
+            }
+            if (summary.extra) {
+                for (let key in summary.extra) {
+                    let ex = summary.extra[key];
+                    kpis.push({ label: key + " Sum", value: ex.sum });
+                    kpis.push({ label: key + " Avg", value: ex.avg });
+                }
+            }
+            kpis.forEach(kpi => {
+                let card = document.createElement('div');
+                card.className = 'kpi-card';
+                card.innerHTML = `<div>${kpi.label}</div><div style="font-size:1.3em;font-weight:bold;">${kpi.value}</div>`;
+                kpiCards.appendChild(card);
+            });
+        }
+
+        function showAlert(msg) {
+            const ab = document.getElementById('alertBanner');
+            ab.textContent = msg;
+            ab.style.display = '';
+        }
+        function hideAlert() {
+            const ab = document.getElementById('alertBanner');
+            ab.style.display = 'none';
+        }
+
+        function updateGroupByValueDropdown(groupBy) {
+            groupByValueOptions = ["All"];
+            document.getElementById("groupByValueInput").value = "All";
+            document.getElementById("groupByValueHidden").value = "";
+            if (!groupBy) {
+                $("#groupByValueInput").autocomplete({ source: ["All"] });
+                document.getElementById("groupByValueInput").disabled = true;
+                document.getElementById("groupByValueInput").placeholder = "All";
+                return;
+            }
+            document.getElementById("groupByValueInput").disabled = false;
+            document.getElementById("groupByValueInput").placeholder = "All";
+            $.ajax({
+                url: "/dashboard/group_values",
+                data: { col: groupBy },
+                success: function(data) {
+                    groupByValueOptions = ["All"].concat(data);
+                    $("#groupByValueInput").autocomplete({
+                        source: groupByValueOptions,
+                        select: function(event, ui) {
+                            if (ui.item.value === "All") {
+                                document.getElementById("groupByValueHidden").value = "";
+                                document.getElementById("groupByValueInput").value = "All";
+                            } else {
+                                document.getElementById("groupByValueHidden").value = ui.item.value;
+                            }
+                            debounceFetchChartData();
+                        },
+                        change: function(event, ui) {
+                            if (!ui.item || groupByValueOptions.indexOf(ui.item.value) === -1) {
+                                document.getElementById("groupByValueInput").value = "All";
+                                document.getElementById("groupByValueHidden").value = "";
+                                debounceFetchChartData();
+                            }
+                        },
+                        minLength: 0
+                    }).focus(function() {
+                        $(this).autocomplete("search", "");
+                    });
+                }
+            });
+        }
+
+        function fetchChartData(drill_field=null, drill_value=null) {
+            showSpinner();
+            hideAlert();
+            const metric = document.getElementById('metricSelect').value;
+            const groupBy = document.getElementById('groupBySelect').value;
+            const aggMethod = document.getElementById('aggSelect').value;
+            const chartType = document.getElementById('chartTypeSelect').value;
+            const dateFrom = document.getElementById('dateFrom') ? document.getElementById('dateFrom').value : '';
+            const dateTo = document.getElementById('dateTo') ? document.getElementById('dateTo').value : '';
+            const topN = document.getElementById('topN').value;
+            const topMode = document.getElementById('topMode').value;
+            const groupByValue = document.getElementById('groupByValueHidden').value;
+            let params = `metric=${encodeURIComponent(metric)}&group_by=${encodeURIComponent(groupBy)}&aggregation=${encodeURIComponent(aggMethod)}&chart=${encodeURIComponent(chartType)}&top_n=${topN}&top_mode=${topMode}`;
+            {% if date_column %}
+            params += `&date_column={{ date_column }}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+            {% endif %}
+            if (groupBy && groupByValue) {
+                params += `&group_by_value=${encodeURIComponent(groupByValue)}`;
+            }
+            if(drill_field && drill_value) {
+                params += `&drill_field=${encodeURIComponent(drill_field)}&drill_value=${encodeURIComponent(drill_value)}`;
+            }
+            fetch(`/dashboard/data?${params}`)
+                .then(response => response.json())
+                .then(updateDashboard)
+                .catch(() => {
+                    hideSpinner();
+                    showAlert("Error loading dashboard data!");
+                });
+        }
+
+        function debounceFetchChartData() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(fetchChartData, 350);
+        }
+
+        function updateDashboard(resp) {
+            hideSpinner();
+            chartData = resp.data;
+            updateKpiCards(resp.summary);
+            document.getElementById('summaryStats').innerHTML = Object.entries(resp.summary).filter(([k])=>k!=="extra").map(([k, v]) => `<span><strong>${k}:</strong> ${typeof v === "object" ? "" : v}</span>`).join(' &nbsp; ');
+            document.getElementById('dataTable').innerHTML = resp.table_html ? resp.table_html : '';
+            if(resp.summary.total && resp.summary.total > 10000) {
+                showAlert("High total detected! Please review data or filter.");
+            }
+            if(mainChart) mainChart.destroy();
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            let config;
+            const chartType = document.getElementById('chartTypeSelect').value;
+            config = {
+                type: chartType === 'doughnut' ? 'doughnut' : (chartType === 'line' ? 'line' : (chartType === 'bar' ? 'bar' : 'pie')),
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        data: chartData.values,
+                        backgroundColor: ['#2563eb','#22c55e','#eab308','#ef4444','#a5b4fc','#f59e42','#84cc16','#f472b6','#38bdf8','#facc15','#f87171','#64748b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'right' } },
+                    onClick: (e, items) => {
+                        if(items.length && resp.summary.group_by) {
+                            let label = chartData.labels[items[0].index];
+                            fetchChartData(resp.summary.group_by, label);
+                        }
+                    }
+                }
+            };
+            mainChart = new Chart(ctx, config);
+            document.getElementById('chartTitle').textContent = `${chartType.charAt(0).toUpperCase()+chartType.slice(1)} Chart for ${document.getElementById('metricSelect').value}` + (document.getElementById('groupBySelect').value ? ` by ${document.getElementById('groupBySelect').value}` : '');
+        }
+
+        document.getElementById('refreshChartsBtn').onclick = fetchChartData;
+        document.getElementById('metricSelect').onchange = debounceFetchChartData;
+        document.getElementById('groupBySelect').onchange = function() {
+            const groupBy = this.value;
+            updateGroupByValueDropdown(groupBy);
+            debounceFetchChartData();
+        };
+        document.getElementById('aggSelect').onchange = debounceFetchChartData;
+        document.getElementById('chartTypeSelect').onchange = debounceFetchChartData;
+        document.getElementById('topN').onchange = debounceFetchChartData;
+        document.getElementById('topMode').onchange = debounceFetchChartData;
+        if(document.getElementById('dateFrom')) document.getElementById('dateFrom').onchange = debounceFetchChartData;
+        if(document.getElementById('dateTo')) document.getElementById('dateTo').onchange = debounceFetchChartData;
+
+        document.getElementById('groupByValueInput').addEventListener('change', function() {
+            debounceFetchChartData();
+        });
+
+        document.getElementById('exportImgBtn').onclick = function() {
+            const url = mainChart.toBase64Image();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'chart.png';
+            a.click();
+        };
+        document.getElementById('exportCsvBtn').onclick = function() {
+            let csv = '';
+            csv += 'Label,Value\n';
+            chartData.labels.forEach((lbl,i) => {
+                csv += `"${lbl}",${chartData.values[i]}\n`;
+            });
+            const blob = new Blob([csv],{type:'text/csv'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'chart_data.csv';
+            a.click();
+        };
+        function loadPresets() {
+            fetch('/dashboard/presets')
+                .then(r=>r.json())
+                .then(presets => {
+                    const list = document.querySelector('.preset-list');
+                    list.innerHTML = '';
+                    presets.forEach((p,i) => {
+                        let btn = document.createElement('button');
+                        btn.className = 'btn secondary';
+                        btn.textContent = p.metric + (p.group_by ? ` by ${p.group_by}` : '');
+                        btn.onclick = () => applyPreset(p);
+                        list.appendChild(btn);
+                    });
+                });
+        }
+        function applyPreset(p) {
+            document.getElementById('metricSelect').value = p.metric;
+            document.getElementById('groupBySelect').value = p.group_by || '';
+            updateGroupByValueDropdown(p.group_by || '');
+            setTimeout(function(){
+                document.getElementById('groupByValueInput').value = p.group_by_value || "All";
+                document.getElementById('groupByValueHidden').value = p.group_by_value || "";
+            }, 100);
+            document.getElementById('aggSelect').value = p.aggregation || 'sum';
+            document.getElementById('chartTypeSelect').value = p.chart || 'pie';
+            document.getElementById('topN').value = p.top_n || 10;
+            document.getElementById('topMode').value = p.top_mode || 'top';
+            {% if date_column %}
+            document.getElementById('dateFrom').value = p.date_from || '';
+            document.getElementById('dateTo').value = p.date_to || '';
+            {% endif %}
+            fetchChartData();
+        }
+        document.getElementById('savePresetBtn').onclick = function() {
+            const preset = {
+                metric: document.getElementById('metricSelect').value,
+                group_by: document.getElementById('groupBySelect').value,
+                group_by_value: document.getElementById('groupByValueHidden').value,
+                aggregation: document.getElementById('aggSelect').value,
+                chart: document.getElementById('chartTypeSelect').value,
+                top_n: document.getElementById('topN').value,
+                top_mode: document.getElementById('topMode').value,
+                date_from: document.getElementById('dateFrom') ? document.getElementById('dateFrom').value : '',
+                date_to: document.getElementById('dateTo') ? document.getElementById('dateTo').value : ''
+            };
+            fetch('/dashboard/presets', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(preset)
+            }).then(() => loadPresets());
+        };
+        document.getElementById('feedbackForm').onsubmit = function(e) {
+            e.preventDefault();
+            const txt = document.getElementById('feedbackText').value;
+            fetch('/dashboard/feedback', {
+                method: 'POST',
+                body: new URLSearchParams({feedback:txt}),
+                headers:{'Content-Type':'application/x-www-form-urlencoded'}
+            }).then(()=>{document.getElementById('feedbackText').value=''; alert('Feedback sent!');});
+        };
+        document.querySelectorAll('select,input,button,textarea').forEach(el => {
+            el.setAttribute('tabindex','0');
+        });
+        window.onload = function() {
+            updateGroupByValueDropdown(document.getElementById('groupBySelect').value);
+            fetchChartData();
+            loadPresets();
+        };
+    </script>
+</body>
+</html>
