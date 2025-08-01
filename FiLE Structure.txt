@@ -1,0 +1,15 @@
+/project-directory
+│
+├── app.py                   # Flask back-end application (Python)
+├── /templates
+│   └── error.html           # Front-end HTML file
+│   └── index.html
+│   └── login.html           
+├── /static
+│   ├── /css
+│   │   └── styles.css       # CSS styles for the front-end
+│   └── /materials
+│       └── logo.png    
+│
+│    
+└── tcwd_data.db     # SQLite database 
