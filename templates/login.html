@@ -1,0 +1,80 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - TCWD GeoPortal & Analytics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='materials/logo.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-page">
+  <img src="{{ url_for('static', filename='materials/logo.png') }}" alt="TCWD Logo" class="bg-logo">
+  <div class="header" style="margin-bottom:2rem;">
+    <div style="display:flex;align-items:center;gap:1.2rem;">
+      <img src="{{ url_for('static', filename='materials/logo.png') }}" alt="TCWD Logo" style="height:2.5rem;">
+      <span class="title" style="color: #003366;">TCWD GeoPortal & Analytics</span>
+    </div>
+  </div>
+  <div class="login-card">
+    <div class="login-title">Login</div>
+    <form method="POST" id="loginForm" autocomplete="off">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <label for="username">Username</label>
+      <input id="username" type="text" name="username" placeholder="Username" required maxlength="50" class="login-input" autofocus />
+      <label for="password">Password</label>
+      <input id="password" type="password" name="password" placeholder="Password" required maxlength="50" class="login-input" />
+      <div class="toggle-password">
+        <input type="checkbox" id="showPwd" onclick="togglePassword()" aria-label="Show Password"> Show Password
+      </div>
+      <button type="submit" class="btn" style="width:100%;margin-bottom:0.5rem;" id="loginBtn">
+        <span id="loginBtnText">Login</span>
+        <span id="loginSpinner" style="display:none;margin-left:8px;">⏳</span>
+      </button>
+      {% if error %}
+        <div class="error" style="background-color: #ff0000; color: #ffffff; padding: 0.5rem; border-radius: 0.5rem;" tabindex="-1" id="errorMsg">{{ error }}</div>
+      {% endif %}
+    </form>
+    
+    <!-- Guest Login Section -->
+    <div style="margin-top: 1rem; text-align: center;">
+      <hr style="margin: 1rem 0; border: none; border-top: 1px solid #ddd;">
+      <p style="margin: 0.5rem 0; color: #666; font-size: 0.9rem;">Or continue as guest</p>
+      <form method="POST" id="guestForm" style="margin-top: 0.5rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <input type="hidden" name="guest_login" value="true">
+        <button type="submit" class="btn" style="width:100%; background-color: #28a745; border-color: #28a745;" id="guestBtn">
+          <span id="guestBtnText">🔓 Login as GUEST</span>
+          <span id="guestSpinner" style="display:none;margin-left:8px;">⏳</span>
+        </button>
+      </form>
+    </div>
+    
+    <div class="login-links">
+      <a href="/" class="link">← Back to Home</a>
+    </div>
+  </div>
+  <script>
+    function togglePassword() {
+      const pwd = document.getElementById("password");
+      pwd.type = pwd.type === "password" ? "text" : "password";
+    }
+    // Spinner and disable on submit for regular login
+    document.getElementById("loginForm").onsubmit = function() {
+      document.getElementById("loginBtn").disabled = true;
+      document.getElementById("loginSpinner").style.display = "";
+      document.getElementById("loginBtnText").textContent = "Logging in...";
+    };
+    // Spinner and disable on submit for guest login
+    document.getElementById("guestForm").onsubmit = function() {
+      document.getElementById("guestBtn").disabled = true;
+      document.getElementById("guestSpinner").style.display = "";
+      document.getElementById("guestBtnText").textContent = "Logging in as Guest...";
+    };
+    // Focus error if present
+    window.onload = function() {
+      var err = document.getElementById("errorMsg");
+      if (err) err.focus();
+    }
+  </script>
+</body>
+</html>

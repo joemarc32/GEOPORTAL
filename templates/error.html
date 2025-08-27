@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Error - TCWD GeoPortal & Analytics</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='materials/logo.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; align-items: center; gap:1.2rem;">
+            <img src="{{ url_for('static', filename='materials/logo.png') }}" alt="TCWD Logo" style="height: 2.5rem;">
+            <span class="title">TCWD GeoPortal & Analytics</span>
+        </div>
+    </div>
+    <div class="card" style="max-width:480px;margin:2rem auto;">
+        <h2>Error</h2>
+        <p>{{ message }}</p>
+        {% if error %}
+        <details>
+            <summary>Details</summary>
+            <pre style="color:#900;font-size:0.95em;">{{ error }}</pre>
+        </details>
+        {% endif %}
+        <a href="{{ url_for('index') }}" class="btn accent">Back to Home</a>
+    </div>
+</body>
+</html>

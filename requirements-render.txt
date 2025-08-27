@@ -1,0 +1,41 @@
+# TCWD GeoPortal - Production Requirements for Render.com
+# Optimized for fast deployment and minimal build time
+
+# Core Flask Framework
+Flask==2.3.3
+Werkzeug==2.3.7
+Jinja2==3.1.2
+MarkupSafe==2.1.3
+itsdangerous==2.1.2
+click==8.1.7
+
+# Production WSGI Server
+gunicorn==21.2.0
+
+# Data Processing
+pandas==2.1.1
+numpy==1.24.3
+
+# Essential Geospatial (minimal for faster builds)
+geopandas==0.14.0
+shapely==2.0.2
+fiona==1.9.5
+pyproj==3.6.1
+
+# Security
+bcrypt==4.0.1
+bleach==6.1.0
+cryptography>=3.4.8
+
+# HTTP Client
+requests==2.31.0
+urllib3==2.0.4
+
+# Input Validation
+validators==0.22.0
+
+# Production Environment Support
+python-dotenv==1.0.0
+
+# Essential Python packages (others are built-in)
+# sqlite3, os, sys, json, csv, datetime, etc. are built-in

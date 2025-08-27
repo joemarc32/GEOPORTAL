@@ -1,0 +1,1691 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Manager Dashboard - TCWD Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .manager-header {
+            background: linear-gradient(135deg, #fd7e14 0%, #fd9843 100%);
+            color: white;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 10px;
+        }
+        
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+            height: 350px; /* Fixed height for consistency */
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 280px; /* Container height for chart */
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .chart-title {
+            color: #003366;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+            height: 25px; /* Fixed title height */
+        }
+        
+        .navigation {
+            background: #003366;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+        }
+        
+        .navigation a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        
+        .navigation a:hover,
+        .navigation a.active {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fd7e14;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="navigation">
+        <a href="{{ url_for('index') }}"><i class="fas fa-home"></i> Dashboard</a>
+        <a href="{{ url_for('manager_dashboard') }}" class="active"><i class="fas fa-chart-bar"></i> Analytics</a>
+        <a href="javascript:void(0)" onclick="showUserManagement()"><i class="fas fa-user-plus"></i> Manage Users</a>
+        {% if user.role == 'admin' %}
+            <a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-cog"></i> Admin</a>
+        {% endif %}
+        <a href="{{ url_for('logout') }}" style="float: right;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <span style="float: right; margin-right: 20px; color: white;">
+            <i class="fas fa-user-tie"></i> {{ user.full_name }} ({{ user.role.upper() }})
+        </span>
+    </div>
+
+    <div class="container">
+        <div class="manager-header">
+            <h1><i class="fas fa-chart-line"></i> Manager Analytics Dashboard</h1>
+            <p>Water consumption analytics and reporting for TCWD</p>
+            <div id="dataPeriod" style="display: none; background: #e8f4fd; color: #004085; padding: 8px 15px; border-radius: 5px; font-size: 14px; margin-top: 10px; text-align: center;">
+                <i class="fas fa-calendar-alt"></i> Loading data period...
+            </div>
+        </div>
+
+        <!-- User Management Section (Hidden by default) -->
+        <div id="userManagementSection" style="display: none; background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h3 style="margin-bottom: 15px; color: #333;"><i class="fas fa-user-plus"></i> Create New User</h3>
+            <p style="color: #666; margin-bottom: 20px;">As a manager, you can create viewer and guest users.</p>
+            
+            <form id="createUserForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div>
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #666;">Username:</label>
+                    <input type="text" id="newUsername" required style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                </div>
+                
+                <div>
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #666;">Password:</label>
+                    <div style="position: relative;">
+                        <input type="password" id="newPassword" required style="width: 100%; padding: 8px 40px 8px 8px; border: 2px solid #ddd; border-radius: 5px;">
+                        <button type="button" onclick="togglePasswordVisibility('newPassword', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #666; font-size: 16px;">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div>
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #666;">Full Name:</label>
+                    <input type="text" id="newFullName" required style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                </div>
+                
+                <div>
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #666;">Email:</label>
+                    <input type="email" id="newEmail" required style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                </div>
+                
+                <div>
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #666;">Role:</label>
+                    <select id="newRole" required style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                        <option value="">Select Role...</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; gap: 10px; align-items: end;">
+                    <button type="submit" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-user-plus"></i> Create User
+                    </button>
+                    <button type="button" onclick="hideUserManagement()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+            
+            <div id="createUserMessage" style="display: none; padding: 10px; border-radius: 5px; margin-top: 10px;"></div>
+            
+            <!-- Existing Users Section -->
+            <div style="margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px;">
+                <h3 style="margin-bottom: 15px; color: #333;"><i class="fas fa-users"></i> Existing Users</h3>
+                <div style="margin-bottom: 15px;">
+                    <button onclick="loadExistingUsers()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-refresh"></i> Load Users
+                    </button>
+                </div>
+                
+                <div id="existingUsersContainer" style="display: none;">
+                    <div id="existingUsersTable" style="overflow-x: auto;">
+                        <!-- Users table will be loaded here -->
+                    </div>
+                </div>
+                
+                <div id="loadUsersMessage" style="display: none; padding: 10px; border-radius: 5px; margin-top: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- Analytics Filter Options -->
+        <div class="filter-section" style="background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h3 style="margin-bottom: 15px; color: #333;"><i class="fas fa-filter"></i> Analytics Filter Options</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
+                
+                <!-- Filter Mode -->
+                <div>
+                    <label for="filterMode" style="display: block; font-weight: bold; margin-bottom: 5px; color: #666;">Display Mode:</label>
+                    <select id="filterMode" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px;">
+                        <option value="latest">Latest Period Only</option>
+                        <option value="specific">Specific Period</option>
+                        <option value="year">Entire Year</option>
+                        <option value="multiple">Multiple Periods</option>
+                        <option value="zero_consumption">0 Consumption Accounts</option>
+                        <option value="high_consumption">High Consumption Accounts</option>
+                    </select>
+                </div>
+
+                <!-- Year Selection -->
+                <div id="yearSelection">
+                    <label for="yearFilter" style="display: block; font-weight: bold; margin-bottom: 5px; color: #666;">Year:</label>
+                    <select id="yearFilter" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px;">
+                        <option value="">All Years</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                    </select>
+                </div>
+
+                <!-- Month Selection -->
+                <div id="monthSelection">
+                    <label for="monthFilter" style="display: block; font-weight: bold; margin-bottom: 5px; color: #666;">Month:</label>
+                    <select id="monthFilter" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px;">
+                        <option value="">All Months</option>
+                        <option value="January">January</option>
+                        <option value="February">February</option>
+                        <option value="March">March</option>
+                        <option value="April">April</option>
+                        <option value="May">May</option>
+                        <option value="June">June</option>
+                        <option value="July">July</option>
+                        <option value="August">August</option>
+                        <option value="September">September</option>
+                        <option value="October">October</option>
+                        <option value="November">November</option>
+                        <option value="December">December</option>
+                    </select>
+                </div>
+
+                <!-- Apply Button -->
+                <div>
+                    <button id="applyFilters" style="background: #fd7e14; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; width: 100%;">
+                        <i class="fas fa-sync-alt"></i> Apply Filters
+                    </button>
+                </div>
+            </div>
+
+            <!-- Multi-select for Multiple Periods Mode -->
+            <div id="multiplePeriodsSection" style="display: none; margin-top: 15px;">
+                <label style="display: block; font-weight: bold; margin-bottom: 10px; color: #666;">Select Periods (Hold Ctrl to select multiple):</label>
+                <select id="multiplePeriods" multiple style="width: 100%; height: 120px; padding: 5px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px;">
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+
+            <!-- Current Filter Display -->
+            <div id="currentFilter" style="margin-top: 10px; padding: 8px 12px; background: #f8f9fa; border-left: 4px solid #fd7e14; font-size: 13px; color: #666;">
+                <i class="fas fa-info-circle"></i> Current filter: Latest period only (June-2025)
+            </div>
+        </div>
+
+        <!-- Statistics Overview -->
+        <div class="stats-overview">
+            <div class="stat-card">
+                <div class="stat-number" id="totalAccounts">Loading...</div>
+                <div class="stat-label">Total Accounts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeConnections">Loading...</div>
+                <div class="stat-label">Active Connections</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalAreas">Loading...</div>
+                <div class="stat-label">Service Areas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avgUsage">Loading...</div>
+                <div class="stat-label">Avg Usage (cu.m.)</div>
+            </div>
+        </div>
+
+        <!-- Analytics Charts -->
+        <div class="analytics-grid">
+            <div class="chart-card">
+                <h3 class="chart-title"><i class="fas fa-toggle-on"></i> Connection Status Distribution</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3 class="chart-title"><i class="fas fa-map-marked-alt"></i> Usage by Area</h3>
+                <div class="chart-container">
+                    <canvas id="areaChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3 class="chart-title"><i class="fas fa-users"></i> Customer Types</h3>
+                <div class="chart-container">
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3 class="chart-title"><i class="fas fa-tachometer-alt"></i> Usage Trends</h3>
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account List Section (for consumption filters) -->
+        <div id="accountListSection" style="display: none; margin-top: 30px;">
+            <div style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h3 id="accountListTitle" style="color: #003366; margin-bottom: 20px; font-size: 20px; display: flex; align-items: center;">
+                    <i class="fas fa-list-ul" style="margin-right: 10px;"></i>
+                    Account Details
+                </h3>
+                
+                <!-- Account List Controls -->
+                <div style="margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-weight: bold; color: #666;">Records per page:</label>
+                        <select id="accountListLimit" style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="25">25 per page</option>
+                            <option value="50" selected>50 per page</option>
+                            <option value="100">100 per page</option>
+                            <option value="200">200 per page</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-weight: bold; color: #666;">Sort by:</label>
+                        <select id="accountListSort" style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="usage_desc">Usage (High to Low)</option>
+                            <option value="usage_asc">Usage (Low to High)</option>
+                            <option value="bill_desc">Bill Amount (High to Low)</option>
+                            <option value="name_asc">Name (A-Z)</option>
+                            <option value="area_asc">Area</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="exportCurrentPage" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                            <i class="fas fa-download"></i> Export Current Page
+                        </button>
+                        <button id="exportAllData" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                            <i class="fas fa-file-export"></i> Export All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Account Summary Stats -->
+                <div id="accountSummaryStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <!-- Will be populated dynamically -->
+                </div>
+
+                <!-- Account List Table -->
+                <div style="overflow-x: auto;">
+                    <table id="accountListTable" style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="background: #f8f9fa; border-bottom: 2px solid #003366;">
+                                <th style="padding: 12px 8px; text-align: left; color: #003366; font-weight: bold; border-right: 1px solid #ddd;">Account #</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #003366; font-weight: bold; border-right: 1px solid #ddd;">Book No</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #003366; font-weight: bold; border-right: 1px solid #ddd;">Customer Name</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #003366; font-weight: bold; border-right: 1px solid #ddd;">Address</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #003366; font-weight: bold; border-right: 1px solid #ddd;">Area</th>
+                                <th style="padding: 12px 8px; text-align: center; color: #003366; font-weight: bold; border-right: 1px solid #ddd;">Usage (cu.m.)</th>
+                                <th style="padding: 12px 8px; text-align: center; color: #003366; font-weight: bold; border-right: 1px solid #ddd;">Bill Amount</th>
+                                <th style="padding: 12px 8px; text-align: center; color: #003366; font-weight: bold; border-right: 1px solid #ddd;">Status</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #003366; font-weight: bold;">Meter #</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accountListBody">
+                            <tr>
+                                <td colspan="8" style="padding: 20px; text-align: center; color: #666;">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading account details...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div id="accountListPagination" style="margin-top: 20px; text-align: center; display: none;">
+                    <button id="prevPage" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin: 0 5px;">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <span id="pageInfo" style="margin: 0 15px; color: #666; font-weight: bold;">Page 1 of 1</span>
+                    <button id="nextPage" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin: 0 5px;">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize charts and load data
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFilterControls();
+            loadAnalyticsData();
+        });
+
+        let statusChart, areaChart, typeChart, trendChart;
+
+        // Initialize filter controls
+        function initializeFilterControls() {
+            // Load available periods
+            loadAvailablePeriods();
+            
+            // Set up event listeners
+            document.getElementById('filterMode').addEventListener('change', handleFilterModeChange);
+            document.getElementById('applyFilters').addEventListener('click', applyFilters);
+            
+            // Initialize filter mode
+            handleFilterModeChange();
+        }
+        
+        function loadAvailablePeriods() {
+            fetch('/api/analytics/periods', {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update year dropdown
+                    const yearSelect = document.getElementById('yearFilter');
+                    yearSelect.innerHTML = '<option value="">All Years</option>';
+                    data.years.forEach(year => {
+                        yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
+                    });
+                    
+                    // Update multiple periods dropdown
+                    const multipleSelect = document.getElementById('multiplePeriods');
+                    multipleSelect.innerHTML = '';
+                    data.periods.forEach(period => {
+                        multipleSelect.innerHTML += `<option value="${period.value}">${period.label}</option>`;
+                    });
+                    
+                    // Set default to latest period
+                    if (data.latest_period) {
+                        updateCurrentFilterDisplay(`Latest period: ${data.latest_period}`);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load periods:', error);
+            });
+        }
+        
+        function handleFilterModeChange() {
+            const mode = document.getElementById('filterMode').value;
+            const yearSelection = document.getElementById('yearSelection');
+            const monthSelection = document.getElementById('monthSelection');
+            const multipleSection = document.getElementById('multiplePeriodsSection');
+            
+            // Show/hide controls based on mode
+            if (mode === 'latest') {
+                yearSelection.style.display = 'none';
+                monthSelection.style.display = 'none';
+                multipleSection.style.display = 'none';
+            } else if (mode === 'specific') {
+                yearSelection.style.display = 'block';
+                monthSelection.style.display = 'block';
+                multipleSection.style.display = 'none';
+            } else if (mode === 'year') {
+                yearSelection.style.display = 'block';
+                monthSelection.style.display = 'none';
+                multipleSection.style.display = 'none';
+            } else if (mode === 'multiple') {
+                yearSelection.style.display = 'none';
+                monthSelection.style.display = 'none';
+                multipleSection.style.display = 'block';
+            } else if (mode === 'zero_consumption' || mode === 'high_consumption') {
+                // For consumption-based filters, show year/month selection to specify period
+                yearSelection.style.display = 'block';
+                monthSelection.style.display = 'block';
+                multipleSection.style.display = 'none';
+            }
+        }
+        
+        function applyFilters() {
+            const mode = document.getElementById('filterMode').value;
+            const year = document.getElementById('yearFilter').value;
+            const month = document.getElementById('monthFilter').value;
+            const multipleSelect = document.getElementById('multiplePeriods');
+            const selectedPeriods = Array.from(multipleSelect.selectedOptions).map(option => option.value);
+            
+            const filterData = {
+                mode: mode,
+                year: year || null,
+                month: month || null,
+                periods: selectedPeriods
+            };
+            
+            loadFilteredAnalyticsData(filterData);
+        }
+        
+        function updateCurrentFilterDisplay(description) {
+            document.getElementById('currentFilter').innerHTML = 
+                `<i class="fas fa-info-circle"></i> Current filter: ${description}`;
+        }
+
+        function loadAnalyticsData() {
+            console.log('🔄 Loading analytics data...');
+            
+            fetch('/api/analytics', {
+                method: 'GET',
+                credentials: 'same-origin',  // Include cookies
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+                .then(response => {
+                    console.log('📡 Analytics API response:', response.status);
+                    
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            console.error('🔐 Authentication error - redirecting to login');
+                            window.location.href = '/login';
+                            return Promise.reject('Authentication required');
+                        } else if (response.status === 403) {
+                            console.error('🚫 Authorization error - insufficient permissions');
+                            return Promise.reject('Insufficient permissions');
+                        } else {
+                            console.error('❌ HTTP error:', response.status);
+                            return Promise.reject(`HTTP error: ${response.status}`);
+                        }
+                    }
+                    
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('✅ Analytics data received:', data);
+                    
+                    if (data && data.success !== false) {
+                        updateStats(data);
+                        createStatusChart(data.status_distribution);
+                        createAreaChart(data.area_analysis);
+                        createTypeChart(data.type_distribution);
+                        createTrendChart(data);
+                        console.log('📊 Charts updated successfully');
+                    } else {
+                        console.error('❌ Invalid data format:', data);
+                        showErrorMessage('Invalid data received from server');
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error loading analytics:', error);
+                    showErrorMessage('Failed to load analytics data: ' + error);
+                });
+        }
+        
+        function loadFilteredAnalyticsData(filterData) {
+            console.log('🔄 Loading filtered analytics data...', filterData);
+            
+            // Store current filter data for pagination
+            currentFilterData = filterData;
+            
+            // Add pagination parameters for consumption filters
+            if (filterData.mode === 'zero_consumption' || filterData.mode === 'high_consumption') {
+                filterData.show_account_list = true;
+                filterData.page = filterData.page || 1;
+                filterData.page_size = filterData.page_size || currentPageSize;
+            }
+            
+            fetch('/api/analytics/filtered', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(filterData)
+            })
+                .then(response => {
+                    console.log('📡 Filtered Analytics API response:', response.status);
+                    
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            console.error('🔐 Authentication error - redirecting to login');
+                            window.location.href = '/login';
+                            return Promise.reject('Authentication required');
+                        } else if (response.status === 403) {
+                            console.error('🚫 Authorization error - insufficient permissions');
+                            return Promise.reject('Insufficient permissions');
+                        } else {
+                            console.error('❌ HTTP error:', response.status);
+                            return Promise.reject(`HTTP error: ${response.status}`);
+                        }
+                    }
+                    
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('✅ Filtered analytics data received:', data);
+                    
+                    if (data && data.success !== false) {
+                        updateStats(data);
+                        createStatusChart(data.status_distribution);
+                        createAreaChart(data.area_analysis);
+                        createTypeChart(data.type_distribution);
+                        createTrendChart(data);
+                        
+                        // Handle account list for consumption filters
+                        if (data.show_account_list && data.account_details) {
+                            showAccountList(data.account_details, data.filter_mode, data.filter_description, data.pagination);
+                        } else {
+                            hideAccountList();
+                        }
+                        
+                        // Update filter description
+                        if (data.filter_description) {
+                            updateCurrentFilterDisplay(data.filter_description);
+                            
+                            // Update data period display
+                            const periodElement = document.getElementById('dataPeriod');
+                            if (periodElement) {
+                                periodElement.textContent = `Data Filter: ${data.filter_description}`;
+                                periodElement.style.display = 'block';
+                            }
+                        }
+                        
+                        console.log('📊 Filtered charts updated successfully');
+                    } else {
+                        console.error('❌ Invalid filtered data format:', data);
+                        showErrorMessage('Invalid data received from server');
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error loading filtered analytics:', error);
+                    showErrorMessage('Failed to load filtered analytics data: ' + error);
+                });
+        }
+        
+        function showErrorMessage(message) {
+            // Create or update error display
+            let errorDiv = document.getElementById('analytics-error');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.id = 'analytics-error';
+                errorDiv.style.cssText = 'background: #dc3545; color: white; padding: 15px; margin: 10px 0; border-radius: 5px; text-align: center;';
+                document.querySelector('.stats-overview').insertAdjacentElement('afterend', errorDiv);
+            }
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+        }
+
+        function updateStats(data) {
+            // Update data period display
+            if (data.latest_period) {
+                const periodElement = document.getElementById('dataPeriod');
+                if (periodElement) {
+                    periodElement.textContent = `Data Period: ${data.latest_period}`;
+                    periodElement.style.display = 'block';
+                }
+            }
+            
+            // Calculate statistics from the data
+            const totalAccounts = data.status_distribution.reduce((sum, item) => sum + item.count, 0);
+            const activeConnections = data.status_distribution.find(item => item.Status === 'ACTIVE')?.count || 
+                                    data.status_distribution.find(item => item.Status === 'Active')?.count || 0;
+            const totalAreas = data.area_analysis.length;
+            const avgUsage = totalAreas > 0 ? 
+                (data.area_analysis.reduce((sum, item) => sum + (item.avg_usage || 0), 0) / totalAreas).toFixed(1) : 0;
+
+            document.getElementById('totalAccounts').textContent = totalAccounts.toLocaleString();
+            document.getElementById('activeConnections').textContent = activeConnections.toLocaleString();
+            document.getElementById('totalAreas').textContent = totalAreas;
+            document.getElementById('avgUsage').textContent = avgUsage;
+        }
+
+        function createStatusChart(data) {
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (statusChart) {
+                statusChart.destroy();
+            }
+
+            statusChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(item => item.Status),
+                    datasets: [{
+                        data: data.map(item => item.count),
+                        backgroundColor: [
+                            '#28a745',  // Active - Green
+                            '#dc3545',  // Disconnected - Red
+                            '#ffc107',  // Other - Yellow
+                            '#6c757d'   // Additional - Gray
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 10,
+                                usePointStyle: true,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createAreaChart(data) {
+            const ctx = document.getElementById('areaChart').getContext('2d');
+            
+            if (areaChart) {
+                areaChart.destroy();
+            }
+
+            // Sort by count and take top 10
+            const sortedData = data.sort((a, b) => b.count - a.count).slice(0, 10);
+
+            areaChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedData.map(item => item.AREA || 'Unknown'),
+                    datasets: [{
+                        label: 'Number of Connections',
+                        data: sortedData.map(item => item.count),
+                        backgroundColor: '#fd7e14',
+                        borderColor: '#fd6b00',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                display: true,
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTypeChart(data) {
+            const ctx = document.getElementById('typeChart').getContext('2d');
+            
+            if (typeChart) {
+                typeChart.destroy();
+            }
+
+            typeChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: data.map(item => item.Type),
+                    datasets: [{
+                        data: data.map(item => item.count),
+                        backgroundColor: [
+                            '#007bff',  // Blue
+                            '#28a745',  // Green
+                            '#ffc107',  // Yellow
+                            '#dc3545',  // Red
+                            '#6f42c1',  // Purple
+                            '#fd7e14'   // Orange
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 10,
+                                usePointStyle: true,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTrendChart(data) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+
+            // Create sample trend data (you can modify this based on your actual data structure)
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const usageData = months.map(() => Math.floor(Math.random() * 1000) + 500);
+
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Average Usage (cu.m.)',
+                        data: usageData,
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                display: true,
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Account List Management Functions
+        let currentPage = 1;
+        let currentPageSize = 50;
+        let currentFilterData = null;
+        
+        function showAccountList(accounts, filterMode, filterDescription, paginationData = null) {
+            console.log(`📋 Displaying ${accounts.length} accounts for ${filterMode}`);
+            
+            const section = document.getElementById('accountListSection');
+            const title = document.getElementById('accountListTitle');
+            const body = document.getElementById('accountListBody');
+            
+            // Update title based on filter mode
+            let titleText = 'Account Details';
+            let titleIcon = 'fa-list-ul';
+            
+            if (filterMode === 'zero_consumption') {
+                titleText = '🔴 Zero Consumption Accounts';
+                titleIcon = 'fa-exclamation-triangle';
+            } else if (filterMode === 'high_consumption') {
+                titleText = '🔶 High Consumption Accounts';
+                titleIcon = 'fa-fire';
+            }
+            
+            title.innerHTML = `<i class="fas ${titleIcon}" style="margin-right: 10px;"></i>${titleText}`;
+            
+            // Show summary stats (use pagination total if available)
+            updateAccountSummaryStats(accounts, filterMode, paginationData);
+            
+            // Populate table
+            populateAccountTable(accounts);
+            
+            // Setup pagination
+            setupPagination(paginationData);
+            
+            // Setup event listeners
+            setupAccountListControls(accounts);
+            
+            // Show the section
+            section.style.display = 'block';
+            
+            // Smooth scroll to the account list
+            setTimeout(() => {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 500);
+        }
+        
+        function hideAccountList() {
+            const section = document.getElementById('accountListSection');
+            section.style.display = 'none';
+        }
+        
+        function setupPagination(paginationData) {
+            const paginationContainer = document.getElementById('accountListPagination');
+            const pageInfo = document.getElementById('pageInfo');
+            const prevButton = document.getElementById('prevPage');
+            const nextButton = document.getElementById('nextPage');
+            
+            if (!paginationData || paginationData.total_pages <= 1) {
+                paginationContainer.style.display = 'none';
+                return;
+            }
+            
+            // Show pagination
+            paginationContainer.style.display = 'block';
+            
+            // Update page info
+            const { current_page, total_pages, start_record, end_record, total_records } = paginationData;
+            pageInfo.innerHTML = `
+                Page ${current_page} of ${total_pages} 
+                <span style="font-weight: normal; color: #999; margin-left: 10px;">
+                    (${start_record}-${end_record} of ${total_records.toLocaleString()} records)
+                </span>
+            `;
+            
+            // Update button states
+            prevButton.disabled = !paginationData.has_prev;
+            nextButton.disabled = !paginationData.has_next;
+            
+            prevButton.style.background = paginationData.has_prev ? '#6c757d' : '#ccc';
+            nextButton.style.background = paginationData.has_next ? '#6c757d' : '#ccc';
+            prevButton.style.cursor = paginationData.has_prev ? 'pointer' : 'not-allowed';
+            nextButton.style.cursor = paginationData.has_next ? 'pointer' : 'not-allowed';
+            
+            // Remove old event listeners
+            prevButton.replaceWith(prevButton.cloneNode(true));
+            nextButton.replaceWith(nextButton.cloneNode(true));
+            
+            // Add new event listeners
+            document.getElementById('prevPage').addEventListener('click', () => {
+                if (paginationData.has_prev) {
+                    loadAccountPage(current_page - 1);
+                }
+            });
+            
+            document.getElementById('nextPage').addEventListener('click', () => {
+                if (paginationData.has_next) {
+                    loadAccountPage(current_page + 1);
+                }
+            });
+        }
+        
+        function loadAccountPage(page) {
+            if (!currentFilterData) return;
+            
+            // Update the request data with new page
+            const requestData = {
+                ...currentFilterData,
+                page: page,
+                page_size: currentPageSize,
+                show_account_list: true
+            };
+            
+            console.log(`📄 Loading page ${page} with ${currentPageSize} records per page`);
+            
+            // Show loading in table
+            const tbody = document.getElementById('accountListBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="padding: 20px; text-align: center; color: #666;">
+                        <i class="fas fa-spinner fa-spin"></i> Loading page ${page}...
+                    </td>
+                </tr>
+            `;
+            
+            // Make API call
+            fetch('/api/analytics/filtered', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.account_details) {
+                    showAccountList(data.account_details, requestData.mode, data.filter_description, data.pagination);
+                    currentPage = page;
+                } else {
+                    console.error('Failed to load page:', data.error);
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" style="padding: 20px; text-align: center; color: #d32f2f;">
+                                Error loading page. Please try again.
+                            </td>
+                        </tr>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading page:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="padding: 20px; text-align: center; color: #d32f2f;">
+                            Network error. Please try again.
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        
+        function updateAccountSummaryStats(accounts, filterMode, paginationData = null) {
+            const statsContainer = document.getElementById('accountSummaryStats');
+            
+            // Use pagination data if available for accurate totals
+            let totalAccounts, totalUsage, totalBill, avgUsage, avgBill;
+            
+            if (paginationData && paginationData.total_records) {
+                // For paginated data, we can't calculate total usage/bill from current page
+                // So we'll show page-specific stats with indication
+                totalAccounts = paginationData.total_records;
+                totalUsage = accounts.reduce((sum, acc) => sum + (acc.CumUsed || 0), 0);
+                totalBill = accounts.reduce((sum, acc) => sum + (acc.BillAmount || 0), 0);
+                avgUsage = accounts.length > 0 ? totalUsage / accounts.length : 0;
+                avgBill = accounts.length > 0 ? totalBill / accounts.length : 0;
+            } else {
+                // Non-paginated data
+                totalAccounts = accounts.length;
+                totalUsage = accounts.reduce((sum, acc) => sum + (acc.CumUsed || 0), 0);
+                totalBill = accounts.reduce((sum, acc) => sum + (acc.BillAmount || 0), 0);
+                avgUsage = totalAccounts > 0 ? totalUsage / totalAccounts : 0;
+                avgBill = totalAccounts > 0 ? totalBill / totalAccounts : 0;
+            }
+            
+            // Count by status (current page only)
+            const statusCounts = {};
+            accounts.forEach(acc => {
+                statusCounts[acc.Status] = (statusCounts[acc.Status] || 0) + 1;
+            });
+            
+            // Count by area (current page only)
+            const areaCounts = {};
+            accounts.forEach(acc => {
+                areaCounts[acc.AREA] = (areaCounts[acc.AREA] || 0) + 1;
+            });
+            
+            const topArea = Object.keys(areaCounts).reduce((a, b) => areaCounts[a] > areaCounts[b] ? a : b, '');
+            const activeAccounts = statusCounts['ACTIVE'] || 0;
+            
+            // Add page indicator for paginated stats
+            const pageIndicator = paginationData ? ' (current page)' : '';
+            
+            // Generate stats HTML
+            statsContainer.innerHTML = `
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #1976d2;">${totalAccounts.toLocaleString()}</div>
+                    <div style="color: #666; font-size: 12px; margin-top: 5px;">Total Accounts</div>
+                </div>
+                <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #388e3c;">${activeAccounts.toLocaleString()}</div>
+                    <div style="color: #666; font-size: 12px; margin-top: 5px;">Active Connections</div>
+                </div>
+                <div style="background: #fff3e0; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #f57c00;">${avgUsage.toFixed(1)}</div>
+                    <div style="color: #666; font-size: 12px; margin-top: 5px;">Avg Usage (cu.m.)</div>
+                </div>
+                <div style="background: #fce4ec; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #c2185b;">₱${avgBill.toFixed(2)}</div>
+                    <div style="color: #666; font-size: 12px; margin-top: 5px;">Avg Bill Amount</div>
+                </div>
+                <div style="background: #f3e5f5; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 18px; font-weight: bold; color: #7b1fa2;">${topArea}</div>
+                    <div style="color: #666; font-size: 12px; margin-top: 5px;">Top Area</div>
+                </div>
+            `;
+        }
+        
+        function populateAccountTable(accounts) {
+            const tbody = document.getElementById('accountListBody');
+            
+            if (accounts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="padding: 20px; text-align: center; color: #666;">
+                            No accounts found for the selected filter.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            // Show all accounts from current page (pagination handled by backend)
+            accounts.forEach((account, index) => {
+                const usage = parseFloat(account.CumUsed || 0);
+                const bill = parseFloat(account.BillAmount || 0);
+                
+                // Style based on consumption level
+                let usageStyle = '';
+                if (usage === 0) {
+                    usageStyle = 'background: #ffebee; color: #c62828; font-weight: bold;';
+                } else if (usage > 50) {
+                    usageStyle = 'background: #fff3e0; color: #e65100; font-weight: bold;';
+                }
+                
+                // Status styling
+                let statusStyle = '';
+                if (account.Status === 'ACTIVE') {
+                    statusStyle = 'color: #2e7d32; font-weight: bold;';
+                } else if (account.Status === 'DISCONNECTED') {
+                    statusStyle = 'color: #d32f2f; font-weight: bold;';
+                } else {
+                    statusStyle = 'color: #f57c00; font-weight: bold;';
+                }
+                
+                html += `
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px 8px; border-right: 1px solid #eee; font-family: monospace;">${account.AccountNumber || 'N/A'}</td>
+                        <td style="padding: 10px 8px; border-right: 1px solid #eee; font-family: monospace;">${account.BookNo || 'N/A'}</td>
+                        <td style="padding: 10px 8px; border-right: 1px solid #eee; font-weight: 500;">${account.Name || 'N/A'}</td>
+                        <td style="padding: 10px 8px; border-right: 1px solid #eee; font-size: 13px;">${account.Address || 'N/A'}</td>
+                        <td style="padding: 10px 8px; border-right: 1px solid #eee; font-weight: 500;">${account.AREA || 'N/A'}</td>
+                        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid #eee; ${usageStyle}">${usage.toFixed(1)}</td>
+                        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid #eee; font-weight: 500;">₱${bill.toFixed(2)}</td>
+                        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid #eee; ${statusStyle}">${account.Status || 'N/A'}</td>
+                        <td style="padding: 10px 8px; font-family: monospace; font-size: 13px;">${account.MeterNo || 'N/A'}</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+        
+        function setupAccountListControls(accounts) {
+            // Export current page button
+            const exportCurrentBtn = document.getElementById('exportCurrentPage');
+            exportCurrentBtn.onclick = () => exportCurrentPageData(accounts);
+            
+            // Export all data button
+            const exportAllBtn = document.getElementById('exportAllData');
+            exportAllBtn.onclick = () => exportAllFilteredData();
+            
+            // Page size control
+            const limitSelect = document.getElementById('accountListLimit');
+            limitSelect.onchange = () => {
+                const newPageSize = parseInt(limitSelect.value);
+                if (newPageSize !== currentPageSize) {
+                    currentPageSize = newPageSize;
+                    // Reload data with new page size, reset to page 1
+                    loadAccountPage(1);
+                }
+            };
+            
+            // Sort control - note: sorting is now handled by backend for consistency
+            const sortSelect = document.getElementById('accountListSort');
+            sortSelect.onchange = () => {
+                // For now, client-side sorting of current page
+                const sortedAccounts = sortAccountList(accounts, sortSelect.value);
+                populateAccountTable(sortedAccounts);
+            };
+        }
+        
+        function sortAccountList(accounts, sortBy) {
+            const sorted = [...accounts];
+            
+            switch (sortBy) {
+                case 'usage_desc':
+                    return sorted.sort((a, b) => (b.CumUsed || 0) - (a.CumUsed || 0));
+                case 'usage_asc':
+                    return sorted.sort((a, b) => (a.CumUsed || 0) - (b.CumUsed || 0));
+                case 'bill_desc':
+                    return sorted.sort((a, b) => (b.BillAmount || 0) - (a.BillAmount || 0));
+                case 'name_asc':
+                    return sorted.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
+                case 'area_asc':
+                    return sorted.sort((a, b) => (a.AREA || '').localeCompare(b.AREA || ''));
+                default:
+                    return sorted;
+            }
+        }
+        
+        // Export current page data (client-side CSV)
+        function exportCurrentPageData(accounts) {
+            if (accounts.length === 0) {
+                alert('No accounts to export.');
+                return;
+            }
+            
+            // Create CSV content
+            const headers = ['Account Number', 'Book No', 'Customer Name', 'Address', 'Area', 'Usage (cu.m.)', 'Bill Amount', 'Status', 'Meter Number', 'Phone', 'Year', 'Month'];
+            const csvContent = [
+                headers.join(','),
+                ...accounts.map(acc => [
+                    acc.AccountNumber || '',
+                    acc.BookNo || '',
+                    `"${(acc.Name || '').replace(/"/g, '""')}"`,
+                    `"${(acc.Address || '').replace(/"/g, '""')}"`,
+                    acc.AREA || '',
+                    acc.CumUsed || 0,
+                    acc.BillAmount || 0,
+                    acc.Status || '',
+                    acc.MeterNo || '',
+                    acc.Cellphone || '',
+                    acc.Year || '',
+                    acc.Month || ''
+                ].join(','))
+            ].join('\n');
+            
+            // Create download
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `consumption_accounts_current_page_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            window.URL.revokeObjectURL(url);
+            
+            console.log(`📥 Exported ${accounts.length} account records (current page)`);
+        }
+        
+        // Export all filtered data (server-side)
+        function exportAllFilteredData() {
+            if (!currentFilterData) {
+                alert('No filter data available for export.');
+                return;
+            }
+            
+            // Show loading indicator
+            const exportBtn = document.getElementById('exportAllData');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            exportBtn.disabled = true;
+            
+            // Prepare export request
+            const exportRequest = {
+                mode: currentFilterData.mode,
+                year: currentFilterData.year,
+                month: currentFilterData.month,
+                description: currentFilterData.description || 'Analytics Export'
+            };
+            
+            fetch('/api/analytics/export/all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(exportRequest)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Export failed: ${response.status}`);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                
+                // Extract filename from Content-Disposition header if available
+                let filename = `analytics_export_all_${new Date().toISOString().split('T')[0]}.csv`;
+                
+                link.download = filename;
+                link.click();
+                window.URL.revokeObjectURL(url);
+                
+                console.log('✅ All data exported successfully');
+                alert('Export completed successfully!');
+            })
+            .catch(error => {
+                console.error('❌ Export failed:', error);
+                alert(`Export failed: ${error.message}`);
+            })
+            .finally(() => {
+                // Restore button
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            });
+        }
+        
+        function exportAccountList(accounts) {
+            // Deprecated - keeping for compatibility
+            exportCurrentPageData(accounts);
+        }
+
+        // Auto-refresh every 5 minutes
+        setInterval(() => {
+            loadAnalyticsData();
+        }, 5 * 60 * 1000);
+
+        // ============================================================================
+        // USER MANAGEMENT FUNCTIONALITY (Manager Only)
+        // ============================================================================
+        
+        function showUserManagement() {
+            document.getElementById('userManagementSection').style.display = 'block';
+            // Hide analytics section
+            const analyticsGrids = document.querySelectorAll('.analytics-grid, .filter-section');
+            analyticsGrids.forEach(grid => grid.style.display = 'none');
+        }
+        
+        function hideUserManagement() {
+            document.getElementById('userManagementSection').style.display = 'none';
+            // Show analytics section
+            const analyticsGrids = document.querySelectorAll('.analytics-grid, .filter-section');
+            analyticsGrids.forEach(grid => grid.style.display = 'block');
+        }
+        
+        // Initialize user management form handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const createUserForm = document.getElementById('createUserForm');
+            if (createUserForm) {
+                createUserForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const userData = {
+                        username: document.getElementById('newUsername').value,
+                        password: document.getElementById('newPassword').value,
+                        full_name: document.getElementById('newFullName').value,
+                        email: document.getElementById('newEmail').value,
+                        role: document.getElementById('newRole').value
+                    };
+                    
+                    // Show loading message
+                    const messageDiv = document.getElementById('createUserMessage');
+                    messageDiv.style.display = 'block';
+                    messageDiv.style.background = '#cce7ff';
+                    messageDiv.style.color = '#004085';
+                    messageDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating user...';
+                    
+                    // Send create user request
+                    fetch('/api/manager/users', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(userData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            messageDiv.style.background = '#f8d7da';
+                            messageDiv.style.color = '#721c24';
+                            messageDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + data.error;
+                        } else {
+                            messageDiv.style.background = '#d4edda';
+                            messageDiv.style.color = '#155724';
+                            messageDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+                            
+                            // Clear the form
+                            createUserForm.reset();
+                            
+                            // Hide message after 3 seconds
+                            setTimeout(() => {
+                                messageDiv.style.display = 'none';
+                            }, 3000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error creating user:', error);
+                        messageDiv.style.background = '#f8d7da';
+                        messageDiv.style.color = '#721c24';
+                        messageDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed to create user. Please try again.';
+                    });
+                });
+            }
+        });
+
+        // Password visibility toggle function
+        function togglePasswordVisibility(inputId, button) {
+            const passwordInput = document.getElementById(inputId);
+            const icon = button.querySelector('i');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                passwordInput.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        // Load existing users function
+        function loadExistingUsers() {
+            const messageDiv = document.getElementById('loadUsersMessage');
+            const container = document.getElementById('existingUsersContainer');
+            const tableDiv = document.getElementById('existingUsersTable');
+            
+            // Show loading message
+            messageDiv.style.display = 'block';
+            messageDiv.style.background = '#cce7ff';
+            messageDiv.style.color = '#004085';
+            messageDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading users...';
+            
+            fetch('/api/manager/users', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    messageDiv.style.background = '#f8d7da';
+                    messageDiv.style.color = '#721c24';
+                    messageDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + data.error;
+                    container.style.display = 'none';
+                } else {
+                    // Hide loading message
+                    messageDiv.style.display = 'none';
+                    
+                    // Show container
+                    container.style.display = 'block';
+                    
+                    // Build users table
+                    let tableHtml = `
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Username</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Full Name</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Email</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Role</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Status</th>
+                                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    if (data.users && data.users.length > 0) {
+                        data.users.forEach(user => {
+                            const statusBadge = user.is_active ? 
+                                '<span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Active</span>' :
+                                '<span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Inactive</span>';
+                            
+                            const roleBadge = `<span style="background: ${getRoleColor(user.role)}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${user.role.toUpperCase()}</span>`;
+                            
+                            const createdDate = new Date(user.created_at).toLocaleDateString();
+                            
+                            tableHtml += `
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="padding: 12px; border: 1px solid #ddd;">${user.username}</td>
+                                    <td style="padding: 12px; border: 1px solid #ddd;">${user.full_name}</td>
+                                    <td style="padding: 12px; border: 1px solid #ddd;">${user.email}</td>
+                                    <td style="padding: 12px; border: 1px solid #ddd;">${roleBadge}</td>
+                                    <td style="padding: 12px; border: 1px solid #ddd;">${statusBadge}</td>
+                                    <td style="padding: 12px; border: 1px solid #ddd;">${createdDate}</td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        tableHtml += `
+                            <tr>
+                                <td colspan="6" style="padding: 20px; text-align: center; color: #666; border: 1px solid #ddd;">
+                                    <i class="fas fa-users"></i> No users found
+                                </td>
+                            </tr>
+                        `;
+                    }
+                    
+                    tableHtml += '</tbody></table>';
+                    
+                    // Add summary info
+                    const summary = `
+                        <div style="margin-bottom: 15px; padding: 10px; background: #e8f4fd; border-radius: 5px; color: #004085;">
+                            <i class="fas fa-info-circle"></i> 
+                            Showing ${data.users ? data.users.length : 0} users 
+                            (Manager view: ${data.allowed_roles ? data.allowed_roles.join(', ') : 'viewer, guest'} roles)
+                        </div>
+                    `;
+                    
+                    tableDiv.innerHTML = summary + tableHtml;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading users:', error);
+                messageDiv.style.background = '#f8d7da';
+                messageDiv.style.color = '#721c24';
+                messageDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed to load users. Please try again.';
+                container.style.display = 'none';
+            });
+        }
+
+        // Get role color for badges
+        function getRoleColor(role) {
+            switch(role) {
+                case 'admin': return '#dc3545';
+                case 'manager': return '#fd7e14';
+                case 'viewer': return '#007bff';
+                case 'guest': return '#6c757d';
+                default: return '#6c757d';
+            }
+        }
+
+        // ============================================================================
+        // AUTO LOGOUT FUNCTIONALITY
+        // ============================================================================
+        
+        (function() {
+            const IDLE_TIMEOUT = {{ idle_timeout_ms }};  // 20 minutes in milliseconds
+            const WARNING_TIME = 2 * 60 * 1000;  // Show warning 2 minutes before logout
+            
+            let idleTimer;
+            let warningTimer;
+            let warningShown = false;
+            
+            // Track user activity
+            const activities = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+            
+            function resetIdleTimer() {
+                clearTimeout(idleTimer);
+                clearTimeout(warningTimer);
+                warningShown = false;
+                
+                // Remove warning if it exists
+                const existingWarning = document.getElementById('idle-warning');
+                if (existingWarning) {
+                    existingWarning.remove();
+                }
+                
+                // Set warning timer (18 minutes from now)
+                warningTimer = setTimeout(showIdleWarning, IDLE_TIMEOUT - WARNING_TIME);
+                
+                // Set logout timer (20 minutes from now)
+                idleTimer = setTimeout(autoLogout, IDLE_TIMEOUT);
+            }
+            
+            function showIdleWarning() {
+                if (warningShown) return;
+                warningShown = true;
+                
+                // Create warning modal
+                const warningModal = document.createElement('div');
+                warningModal.id = 'idle-warning';
+                warningModal.innerHTML = `
+                    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                               background: rgba(0,0,0,0.7); z-index: 10000; display: flex; 
+                               justify-content: center; align-items: center;">
+                        <div style="background: white; padding: 30px; border-radius: 10px; 
+                                   box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 400px; text-align: center;">
+                            <div style="color: #ff6b35; font-size: 24px; margin-bottom: 15px;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <h3 style="color: #333; margin-bottom: 15px;">Session Expiring Soon</h3>
+                            <p style="color: #666; margin-bottom: 20px;">
+                                Your session will expire in <strong>2 minutes</strong> due to inactivity. 
+                                Click "Stay Logged In" to continue or you will be automatically logged out.
+                            </p>
+                            <div>
+                                <button id="stay-logged-in" style="background: #28a745; color: white; border: none; 
+                                       padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                                    Stay Logged In
+                                </button>
+                                <button id="logout-now" style="background: #dc3545; color: white; border: none; 
+                                       padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                                    Logout Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(warningModal);
+                
+                // Handle buttons
+                document.getElementById('stay-logged-in').onclick = function() {
+                    warningModal.remove();
+                    resetIdleTimer();  // Reset the timer
+                };
+                
+                document.getElementById('logout-now').onclick = function() {
+                    performLogout();
+                };
+            }
+            
+            function autoLogout() {
+                performLogout();
+            }
+            
+            function performLogout() {
+                // Show logging out message
+                const logoutMsg = document.createElement('div');
+                logoutMsg.innerHTML = `
+                    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                               background: rgba(0,0,0,0.8); z-index: 10001; display: flex; 
+                               justify-content: center; align-items: center;">
+                        <div style="background: white; padding: 30px; border-radius: 10px; text-align: center;">
+                            <div style="color: #ff6b35; font-size: 24px; margin-bottom: 15px;">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </div>
+                            <h3 style="color: #333; margin-bottom: 10px;">Logging Out...</h3>
+                            <p style="color: #666;">You have been logged out due to inactivity.</p>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(logoutMsg);
+                
+                // Perform logout
+                setTimeout(function() {
+                    window.location.href = '{{ url_for("logout") }}';
+                }, 1500);
+            }
+            
+            // Set up activity listeners
+            activities.forEach(function(event) {
+                document.addEventListener(event, resetIdleTimer, true);
+            });
+            
+            // Handle window/tab close - attempt to logout server-side
+            window.addEventListener('beforeunload', function(e) {
+                // Send logout signal using beacon (most reliable for tab close)
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon('{{ url_for("logout") }}', '');
+                }
+                
+                // Fallback: try synchronous request (may be blocked by browser)
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', '{{ url_for("logout") }}', false); // synchronous
+                    xhr.send();
+                } catch (e) {
+                    // Ignore errors - browser may block this
+                }
+                
+                // Clear local session data
+                sessionStorage.clear();
+                localStorage.removeItem('user_session');
+            });
+            
+            // Also handle pagehide event (more reliable than beforeunload)
+            window.addEventListener('pagehide', function(e) {
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon('{{ url_for("logout") }}', '');
+                }
+            });
+            
+            // Handle page visibility change (tab switching, minimizing)
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    // User came back to the tab, reset timer
+                    resetIdleTimer();
+                }
+            });
+            
+            // Initialize the idle timer
+            resetIdleTimer();
+            
+            console.log('Auto logout initialized: ' + (IDLE_TIMEOUT / 1000 / 60) + ' minute timeout');
+        })();
+    </script>
+</body>
+</html>
+

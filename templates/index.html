@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>TCWD GeoPortal & Analytics</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='materials/logo.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/base/jquery-ui.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Status colors for modal */
+        .modal-status-active {
+            color: #1dbf1d;
+            font-weight: bold;
+        }
+        .modal-status-disconnected {
+            color: #e53935;
+            font-weight: bold;
+        }
+        .modal-status-other {
+            color: #ffd600;
+            font-weight: bold;
+        }
+        #rowModal {
+            background: rgba(255,255,255,0.5);
+        }
+        body {
+            position: relative;
+            min-height: 100vh;
+            background: url('{{ url_for('static', filename='materials/logo.png') }}') no-repeat center center fixed;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed;
+        }
+        /* Overlay for subtle effect */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(255,255,255,0.35);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .header, .card, .modal, .table-responsive, .pagination, .table-summary {
+            position: relative;
+            z-index: 1;
+        }
+        .card {
+            background: rgba(255,255,255,0.01);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .modal-content.card {
+            background: rgba(255,255,255,0.3);
+        }
+        .table-responsive {
+            background: rgba(255,255,255,0.01);
+        }
+        
+        /* Copy and Call Button Styles */
+        .copy-btn, .copy-btn-modal {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 6px;
+            margin-left: 0.5em;
+            border-radius: 4px;
+            font-size: 16px;
+            color: #6c757d;
+            transition: all 0.2s ease;
+            vertical-align: middle;
+            display: inline-block;
+        }
+        
+        .copy-btn:hover, .copy-btn-modal:hover {
+            background-color: #f8f9fa;
+            color: #495057;
+            transform: scale(1.1);
+        }
+        
+        .copy-btn:active, .copy-btn-modal:active {
+            transform: scale(0.95);
+        }
+        
+        .copy-btn:focus, .copy-btn-modal:focus {
+            outline: 2px solid #007bff;
+            outline-offset: 1px;
+        }
+        
+        .call-btn {
+            margin-left: 0.5em;
+            vertical-align: middle;
+            display: inline-block;
+            text-decoration: none;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .call-btn:hover {
+            background-color: #f8f9fa;
+            transform: scale(1.1);
+        }
+        
+        .call-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .call-btn:focus {
+            outline: 2px solid #007bff;
+            outline-offset: 1px;
+        }
+        
+        /* Mobile styles */
+        @media (max-width: 600px) {
+            .filter-form {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0.8rem;
+            }
+            
+            /* Main flex container - keep horizontal when possible */
+            .filter-form > div {
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+                align-items: center !important;
+                gap: 0.4rem !important;
+                width: 100% !important;
+                padding: 10px !important;
+            }
+            
+            /* Search boxes - flexible width */
+            #searchBox,
+            #guestSearchBox {
+                flex: 1 !important;
+                min-width: 120px !important;
+                max-width: 160px !important;
+                padding: 8px 10px !important;
+                border: 2px solid #ddd !important;
+                border-radius: 6px !important;
+                font-size: 14px !important;
+                background-color: #fff !important;
+            }
+            
+            /* Select dropdowns - compact */
+            .filter-form select {
+                min-width: 70px !important;
+                max-width: 90px !important;
+                padding: 8px 4px !important;
+                font-size: 12px !important;
+                margin: 0 !important;
+                border-radius: 4px !important;
+            }
+            
+            /* Buttons - compact styling */
+            .filter-form .btn,
+            .filter-form a {
+                padding: 8px 10px !important;
+                font-size: 12px !important;
+                min-width: auto !important;
+                white-space: nowrap !important;
+                border-radius: 4px !important;
+                margin: 0 !important;
+            }
+            
+            /* Very narrow screens - stack in rows */
+            @media (max-width: 480px) {
+                .filter-form > div {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    gap: 0.5rem !important;
+                }
+                
+                /* Group elements in rows for narrow screens */
+                .filter-form > div::before {
+                    content: "";
+                    display: none;
+                }
+                
+                #searchBox,
+                #guestSearchBox {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin-bottom: 0.3rem !important;
+                }
+                
+                .filter-form select {
+                    width: 48% !important;
+                    max-width: 48% !important;
+                    display: inline-block !important;
+                    margin: 0.1rem 1% !important;
+                }
+                
+                .filter-form .btn,
+                .filter-form a {
+                    width: 48% !important;
+                    display: inline-block !important;
+                    margin: 0.1rem 1% !important;
+                    text-align: center !important;
+                }
+            }
+        }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; align-items: center; gap:1.2rem;">
+            <img src="{{ url_for('static', filename='materials/logo.png') }}" alt="TCWD Logo" style="height: 2.5rem;">
+            <span class="title">TCWD GeoPortal & Analytics</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            {% if user and user.role == 'admin' %}
+                <a href="{{ url_for('admin_dashboard') }}" class="btn" style="background: #dc3545; color: white; text-decoration: none;">
+                    <i class="fas fa-shield-alt"></i> Back to Admin Dashboard
+                </a>
+                <a href="{{ url_for('manager_dashboard') }}" class="btn" style="background: #fd7e14; color: white; text-decoration: none;">
+                    <i class="fas fa-chart-bar"></i> Manager Analytics
+                </a>
+            {% elif user and user.role == 'manager' %}
+                <a href="{{ url_for('manager_dashboard') }}" class="btn" style="background: #fd7e14; color: white; text-decoration: none;">
+                    <i class="fas fa-chart-bar"></i> Back to Manager Dashboard
+                </a>
+            {% endif %}
+            <a href="{{ url_for('logout') }}" class="btn danger">Logout</a>
+        </div>
+    </div>
+    <div class="card">
+        {% if user and user.role != 'guest' %}
+        <!-- Full Filter Form - For Authenticated Users -->
+        <form class="filter-form" method="get" action="{{ url_for('index') }}" id="filterForm" autocomplete="off">
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; width: 100%; padding: 10px;">
+                <!-- Search Input -->
+                <input type="text" id="searchBox" name="q" placeholder="Search Name, Account, Meter" value="{{ search }}" aria-label="Search" style="flex: 1; min-width: 180px; max-width: 250px;">
+                
+                <!-- Search Button -->
+                <button type="submit" class="btn" id="searchBtn">Search</button>
+                
+                <!-- Clear Filters Button -->
+                <button type="button" class="btn secondary" id="clearFiltersBtn" tabindex="0">Clear Filters</button>
+                
+                <!-- Dropdown Filters -->
+                <select name="status" aria-label="Status">
+                    {% set is_all_status = (not selected_status) or (selected_status == '') %}
+                    <option value="" {% if is_all_status %}selected{% endif %}>All Status</option>
+                    {% for s in statuses %}
+                        {% if s %}
+                            <option value="{{ s }}" {% if selected_status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <select name="bookno" aria-label="Book Number">
+                    <option value="" {% if selected_bookno == "" or selected_bookno is none %}selected{% endif %}>All BookNo</option>
+                    {% for b in booknos %}
+                        <option value="{{ b }}" {% if selected_bookno == b %}selected{% endif %}>{{ b }}</option>
+                    {% endfor %}
+                </select>
+                <select name="ratecode" aria-label="Rate Code">
+                    <option value="" {% if selected_ratecode == "" or selected_ratecode is none %}selected{% endif %}>All RateCode</option>
+                    {% for r in ratecodes %}
+                        <option value="{{ r }}" {% if selected_ratecode == r %}selected{% endif %}>{{ r }}</option>
+                    {% endfor %}
+                </select>
+                <select name="area" aria-label="Area">
+                    <option value="" {% if selected_area == "" or selected_area is none %}selected{% endif %}>All Area</option>
+                    {% for a in areas %}
+                        <option value="{{ a }}" {% if selected_area == a %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+                <select name="type" aria-label="Type">
+                    <option value="" {% if selected_type == "" or selected_type is none %}selected{% endif %}>All Type</option>
+                    {% for t in types %}
+                        <option value="{{ t }}" {% if selected_type == t %}selected{% endif %}>{{ t }}</option>
+                    {% endfor %}
+                </select>
+                
+                <!-- Export Buttons -->
+                <a href="{{ url_for('export', q=search, status=selected_status, bookno=selected_bookno, ratecode=selected_ratecode, area=selected_area, type=selected_type, format='csv') }}"
+                    class="btn accent" id="exportCsvBtn"
+                    {% if not rows %}aria-disabled="true" style="pointer-events:none;opacity:0.5;"{% endif %}>
+                    Export CSV
+                </a>
+                <a href="{{ url_for('export', q=search, status=selected_status, bookno=selected_bookno, ratecode=selected_ratecode, area=selected_area, type=selected_type, format='excel') }}"
+                    class="btn accent" id="exportXlsBtn"
+                    {% if not rows %}aria-disabled="true" style="pointer-events:none;opacity:0.5;"{% endif %}>
+                    Export Excel
+                </a>
+            </div>
+        </form>
+        <!-- Active Filters Chips -->
+        <div class="active-filters">
+            {% set filters = [] %}
+            {% if search %}{% set _ = filters.append('Search: ' ~ search) %}{% endif %}
+            {% if selected_status %}{% set _ = filters.append('Status: ' ~ selected_status) %}{% endif %}
+            {% if selected_bookno %}{% set _ = filters.append('BookNo: ' ~ selected_bookno) %}{% endif %}
+            {% if selected_ratecode %}{% set _ = filters.append('RateCode: ' ~ selected_ratecode) %}{% endif %}
+            {% if selected_area %}{% set _ = filters.append('Area: ' ~ selected_area) %}{% endif %}
+            {% if selected_type %}{% set _ = filters.append('Type: ' ~ selected_type) %}{% endif %}
+            {% if filters %}
+                <div style="margin-bottom: 1rem;">
+                    <strong>Active Filters:</strong>
+                    {% for f in filters %}
+                        <span class="filter-chip">{{ f }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <!-- Search-Only Form - For Guest Users -->
+        <form class="filter-form" method="get" action="{{ url_for('index') }}" id="guestSearchForm" autocomplete="off">
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; width: 100%; padding: 10px;">
+                <input type="text" id="guestSearchBox" name="q" placeholder="Search Name, Account, Meter" value="{{ search }}" aria-label="Search" style="flex: 1; min-width: 200px; max-width: 350px;">
+                <button type="submit" class="btn" id="guestSearchBtn">Search</button>
+                {% if search %}
+                <button type="button" class="btn secondary" id="guestClearBtn" onclick="window.location.href='{{ url_for('index') }}'">Clear Search</button>
+                {% endif %}
+            </div>
+        </form>
+        <!-- Guest Search Active Display -->
+        {% if search %}
+        <div class="active-filters">
+            <div style="margin-bottom: 1rem;">
+                <strong>Search:</strong>
+                <span class="filter-chip">{{ search }}</span>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        {% for col in columns %}
+                            <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if rows %}
+                        {% for row in rows %}
+                            <tr class="data-row" data-row='{{ row|tojson }}' tabindex="0" aria-label="Show details">
+                                {% for col in columns %}
+                                    {% if col == 'Status' %}
+                                        <td>
+                                            <span class="{% if row[col]|lower == 'active' %}
+                                                    status-active
+                                                {% elif row[col]|lower == 'disconnected' %}
+                                                    status-disconnected
+                                                {% else %}
+                                                    status-other
+                                                {% endif %}">
+                                                {{ row[col] }}
+                                            </span>
+                                        </td>
+                                    {% else %}
+                                        <td>
+                                            {{ row[col] }}
+                                            {% if col in ['AccountNumber', 'MeterNo'] and row[col] %}
+                                                <button class="copy-btn" data-copy="{{ row[col] }}" title="Copy {{ col }}" tabindex="0">📋</button>
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="{{ columns|length }}" class="no-records">
+                                <div style="padding:2rem 0;text-align:center;color:#888;">
+                                    🔍 No records found matching your criteria.
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div class="pagination">
+            {% if page > 1 %}
+                <a href="{{ url_for('index', q=search, status=selected_status, bookno=selected_bookno, ratecode=selected_ratecode, area=selected_area, type=selected_type, page=page-1) }}" class="btn secondary">&laquo; Prev</a>
+            {% endif %}
+            <span>Page {{ page }} of {{ total_pages }}</span>
+            {% if page < total_pages %}
+                <a href="{{ url_for('index', q=search, status=selected_status, bookno=selected_bookno, ratecode=selected_ratecode, area=selected_area, type=selected_type, page=page+1) }}" class="btn secondary">Next &raquo;</a>
+            {% endif %}
+        </div>
+        <div class="table-summary">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;">
+                <span>Filtered results: <strong>{{ total_rows }}</strong></span>
+                <div style="text-align: center; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f8f9fa;">
+                    <h4 style="color: #007bff; margin: 0;" id="totalRecords">{{ "{:,}".format(latest_month_total) }}</h4>
+                    <small style="color: #6c757d;">Total Records ({{ latest_year }}-{{ latest_month }})</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for row details -->
+    <div id="rowModal" class="modal" aria-modal="true" role="dialog" tabindex="-1">
+      <div class="modal-content card" role="document">
+        <span class="close" id="closeModal" style="float:right;cursor:pointer;font-size:1.5rem;" tabindex="0" aria-label="Close">&times;</span>
+        <h2 style="margin-top:0;">Record Details</h2>
+        <div id="modalFields"></div>
+        <button class="btn accent" id="viewMapBtn" style="margin-top:1.2rem;">View Map</button>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    // Enhanced autocomplete for search box: Name, AccountNumber, MeterNo
+    $(function() {
+        $("#searchBox").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "{{ url_for('suggest') }}",
+                    dataType: "json",
+                    data: { term: request.term },
+                    success: function(data) {
+                        const term = request.term.toLowerCase();
+                        const suggestions = [];
+                        if (Array.isArray(data)) {
+                            data.forEach(function(item) {
+                                // Only show the field that matches the search term
+                                if (item.Name && item.Name.toLowerCase().includes(term)) {
+                                    suggestions.push({ label: item.Name, value: item.Name });
+                                } else if (item.AccountNumber && String(item.AccountNumber).toLowerCase().includes(term)) {
+                                    suggestions.push({ label: item.AccountNumber, value: item.AccountNumber });
+                                } else if (item.MeterNo && String(item.MeterNo).toLowerCase().includes(term)) {
+                                    suggestions.push({ label: item.MeterNo, value: item.MeterNo });
+                                }
+                            });
+                        }
+                        // If no suggestions, show a message
+                        if (suggestions.length === 0) {
+                            suggestions.push({ label: 'No matches found', value: '' });
+                        }
+                        response(suggestions);
+                    }
+                });
+            },
+            minLength: 2,
+            select: function(event, ui) {
+                $(this).val(ui.item.value);
+                return false;
+            }
+        });
+    });
+
+    // Enhanced autocomplete for guest search box
+    $(function() {
+        $("#guestSearchBox").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "{{ url_for('suggest') }}",
+                    dataType: "json",
+                    data: { term: request.term },
+                    success: function(data) {
+                        const term = request.term.toLowerCase();
+                        const suggestions = [];
+                        if (Array.isArray(data)) {
+                            data.forEach(function(item) {
+                                // Only show the field that matches the search term
+                                if (item.Name && item.Name.toLowerCase().includes(term)) {
+                                    suggestions.push({ label: item.Name, value: item.Name });
+                                } else if (item.AccountNumber && String(item.AccountNumber).toLowerCase().includes(term)) {
+                                    suggestions.push({ label: item.AccountNumber, value: item.AccountNumber });
+                                } else if (item.MeterNo && String(item.MeterNo).toLowerCase().includes(term)) {
+                                    suggestions.push({ label: item.MeterNo, value: item.MeterNo });
+                                }
+                            });
+                        }
+                        // If no suggestions, show a message
+                        if (suggestions.length === 0) {
+                            suggestions.push({ label: 'No matches found', value: '' });
+                        }
+                        response(suggestions);
+                    }
+                });
+            },
+            minLength: 2,
+            select: function(event, ui) {
+                $(this).val(ui.item.value);
+                return false;
+            }
+        });
+    });
+
+    {% if user and user.role != 'guest' %}
+    // Clear filters button - Only for non-guest users
+    document.getElementById('clearFiltersBtn').onclick = function() {
+        document.getElementById('searchBox').value = '';
+        document.querySelector('select[name="status"]').selectedIndex = 0;
+        document.querySelector('select[name="bookno"]').selectedIndex = 0;
+        document.querySelector('select[name="ratecode"]').selectedIndex = 0;
+        document.querySelector('select[name="area"]').selectedIndex = 0;
+        document.querySelector('select[name="type"]').selectedIndex = 0;
+        document.getElementById('filterForm').submit();
+    };
+
+    // Disable export if no data - Only for non-guest users
+    var hasRows = {{ 'true' if rows else 'false' }};
+    if (!hasRows) {
+        document.getElementById('exportCsvBtn').onclick = function(e){ e.preventDefault(); };
+        document.getElementById('exportXlsBtn').onclick = function(e){ e.preventDefault(); };
+    }
+    {% endif %}
+
+    // Table row click/modal
+    const modal = document.getElementById('rowModal');
+    const closeModalBtn = document.getElementById('closeModal');
+    const viewMapBtn = document.getElementById('viewMapBtn');
+    let lastFocusedRow = null;
+
+    function openModal(rowData) {
+        // Build modal table
+        let html = '<table>';
+        for (const [key, value] of Object.entries(rowData)) {
+            html += `<tr><th style="text-align:right;padding-right:1em;">${key}</th><td>`;
+            if (key === 'Status' && value) {
+                let statusClass = 'modal-status-other';
+                if (String(value).toLowerCase() === 'active') statusClass = 'modal-status-active';
+                else if (String(value).toLowerCase() === 'disconnected') statusClass = 'modal-status-disconnected';
+                html += `<span class="${statusClass}">${value}</span>`;
+            } else if (key === 'Cellphone') {
+                html += `${value ?? ''}`;
+                if (value) {
+                    html += ` <a href="tel:${value}" class="call-btn" title="Call" tabindex="0" style="margin-left:0.5em;vertical-align:middle;display:inline-block;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;">
+                          <path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.21c1.21.49 2.53.76 3.88.76a1 1 0 011 1v3.5a1 1 0 01-1 1C7.61 22 2 16.39 2 9.5a1 1 0 011-1H6.5a1 1 0 011 1c0 1.35.27 2.67.76 3.88a1 1 0 01-.21 1.11l-2.2 2.2z" fill="#2563eb"/>
+                        </svg>
+                      </a>`;
+                }
+            } else {
+                html += `${value ?? ''}`;
+                if ((key === 'AccountNumber' || key === 'MeterNo') && value) {
+                    html += ` <button class="copy-btn-modal" data-copy="${value}" title="Copy ${key}" tabindex="0">📋</button>`;
+                }
+            }
+            html += '</td></tr>';
+        }
+        html += '</table>';
+        // Add year selector, chart type selector, loading spinner, error message, and chart canvas
+        html += `<div style="margin-top:1.5em;display:flex;align-items:center;gap:1em;">
+            <label for="usageYearSelect"><strong>Year:</strong></label>
+            <select id="usageYearSelect" style="margin-left:0.5em;" aria-label="Select year"></select>
+            <label for="chartTypeSelect"><strong>Chart Type:</strong></label>
+            <select id="chartTypeSelect" style="margin-left:0.5em;" aria-label="Select chart type">
+                <option value="line">Line</option>
+                <option value="bar">Bar</option>
+            </select>
+        </div>`;
+        html += `<div id="chartLoading" style="margin-top:1em;display:none;text-align:center;">
+            <span>Loading chart...</span>
+        </div>`;
+        html += `<div id="chartError" style="margin-top:1em;display:none;color:#c00;text-align:center;"></div>`;
+        html += `<div style="margin-top:1em;"><canvas id="usageChart" height="180" aria-label="Account usage chart"></canvas></div>`;
+        document.getElementById('modalFields').innerHTML = html;
+        modal.style.display = 'block';
+        modal.setAttribute('aria-hidden', 'false');
+        closeModalBtn.focus();
+        // Store coordinates for map button
+        viewMapBtn.dataset.x = rowData.x;
+        viewMapBtn.dataset.y = rowData.y;
+        viewMapBtn.disabled = !(rowData.x && rowData.y);
+        viewMapBtn.setAttribute('aria-disabled', !(rowData.x && rowData.y));
+
+        // Modular chart logic
+        const account = rowData.AccountNumber;
+        const yearSelect = document.getElementById('usageYearSelect');
+        const chartTypeSelect = document.getElementById('chartTypeSelect');
+        const chartCanvas = document.getElementById('usageChart');
+        const chartLoading = document.getElementById('chartLoading');
+        const chartError = document.getElementById('chartError');
+        let usageChart = null;
+
+        // Show loading spinner
+        function showLoading() {
+            chartLoading.style.display = '';
+            chartError.style.display = 'none';
+            chartCanvas.style.display = 'none';
+        }
+        // Hide loading spinner
+        function hideLoading() {
+            chartLoading.style.display = 'none';
+            chartCanvas.style.display = '';
+        }
+        // Show error message
+        function showError(msg) {
+            chartError.textContent = msg;
+            chartError.style.display = '';
+            chartCanvas.style.display = 'none';
+            chartLoading.style.display = 'none';
+        }
+        // Hide error message
+        function hideError() {
+            chartError.style.display = 'none';
+        }
+
+        // Fetch years and initialize chart
+        function fetchYearsAndInit() {
+            showLoading();
+            $.get(`/account_usage_years?account=${encodeURIComponent(account)}`)
+                .done(function(years) {
+                    if (!years || !years.length) {
+                        yearSelect.innerHTML = '<option value="">No data</option>';
+                        showError('No usage data available for this account.');
+                        return;
+                    }
+                    yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+                    chartCanvas.style.display = '';
+                    chartLoading.style.display = 'none';
+                    chartError.style.display = 'none';
+                    yearSelect.value = years[years.length - 1];
+                    loadUsageChart(years[years.length - 1], chartTypeSelect.value);
+                })
+                .fail(function() {
+                    showError('Failed to fetch usage years. Please try again later.');
+                });
+        }
+
+        // Load usage chart
+        function loadUsageChart(year, chartType) {
+            showLoading();
+            $.get(`/account_usage?account=${encodeURIComponent(account)}&year=${year}`)
+                .done(function(data) {
+                    hideLoading();
+                    if (!data || !data.length) {
+                        showError('No usage data available for the selected year.');
+                        return;
+                    }
+                    // Prepare data for chart
+                    const labels = data.map(d => d.Month);
+                    const usageData = data.map(d => d.CumUsed);
+                    // Destroy existing chart instance if present
+                    if (usageChart) {
+                        usageChart.destroy();
+                        usageChart = null;
+                    }
+                    // Create new chart
+                    const ctx = chartCanvas.getContext('2d');
+                    usageChart = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Usage',
+                                data: usageData,
+                                backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                                borderColor: 'rgb(37, 99, 235)',
+                                borderWidth: 2,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top',
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                }
+                            },
+                            interaction: {
+                                mode: 'index',
+                                intersect: false
+                            },
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Month'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Usage (cu.m.)'
+                                    },
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                })
+                .fail(function() {
+                    hideLoading();
+                    showError('Failed to fetch usage data. Please try again later.');
+                });
+        }
+
+        // Event listeners
+        yearSelect.addEventListener('change', function() {
+            const selectedYear = this.value;
+            if (selectedYear) {
+                loadUsageChart(selectedYear, chartTypeSelect.value);
+            }
+        });
+
+        chartTypeSelect.addEventListener('change', function() {
+            const selectedChartType = this.value;
+            loadUsageChart(yearSelect.value, selectedChartType);
+        });
+
+        // Initial load
+        fetchYearsAndInit();
+    }
+
+    closeModalBtn.onclick = function() {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        // Focus the last focused row or a default element
+        if (lastFocusedRow) {
+            lastFocusedRow.focus();
+        } else {
+            document.getElementById('searchBox').focus();
+        }
+    };
+
+    // Row click handler to open modal
+    document.querySelectorAll('.data-row').forEach(row => {
+        row.addEventListener('click', function() {
+            lastFocusedRow = this;
+            const rowData = JSON.parse(this.dataset.row);
+            openModal(rowData);
+        });
+    });
+
+    // Close modal on outside click
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            closeModalBtn.click();
+        }
+    });
+
+    // Copy button functionality for table cells
+    document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('copy-btn')) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const textToCopy = event.target.getAttribute('data-copy');
+            if (textToCopy) {
+                // Use modern clipboard API if available
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(textToCopy).then(function() {
+                        showCopyFeedback(event.target, 'Copied!');
+                    }).catch(function(err) {
+                        console.error('Failed to copy text: ', err);
+                        fallbackCopy(textToCopy, event.target);
+                    });
+                } else {
+                    // Fallback for older browsers
+                    fallbackCopy(textToCopy, event.target);
+                }
+            }
+        }
+    });
+
+    // Copy button functionality for modal
+    document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('copy-btn-modal')) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const textToCopy = event.target.getAttribute('data-copy');
+            if (textToCopy) {
+                // Use modern clipboard API if available
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(textToCopy).then(function() {
+                        showCopyFeedback(event.target, 'Copied!');
+                    }).catch(function(err) {
+                        console.error('Failed to copy text: ', err);
+                        fallbackCopy(textToCopy, event.target);
+                    });
+                } else {
+                    // Fallback for older browsers
+                    fallbackCopy(textToCopy, event.target);
+                }
+            }
+        }
+    });
+
+    // Fallback copy function for older browsers
+    function fallbackCopy(text, button) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showCopyFeedback(button, 'Copied!');
+            } else {
+                showCopyFeedback(button, 'Copy failed');
+            }
+        } catch (err) {
+            console.error('Fallback copy failed: ', err);
+            showCopyFeedback(button, 'Copy failed');
+        }
+        
+        document.body.removeChild(textArea);
+    }
+
+    // Show copy feedback
+    function showCopyFeedback(button, message) {
+        const originalText = button.innerHTML;
+        const originalTitle = button.title;
+        
+        button.innerHTML = '✅';
+        button.title = message;
+        button.style.color = '#28a745';
+        
+        setTimeout(function() {
+            button.innerHTML = originalText;
+            button.title = originalTitle;
+            button.style.color = '';
+        }, 1500);
+    }
+
+    // View map button in modal
+    viewMapBtn.onclick = function() {
+        const x = this.dataset.x;
+        const y = this.dataset.y;
+        if (x && y) {
+            window.open(`https://www.google.com/maps/search/?api=1&query=${y},${x}`, '_blank');
+        } else {
+            alert('No coordinates available for this record.');
+        }
+    };
+
+    // ============================================================================
+    // AUTO LOGOUT FUNCTIONALITY
+    // ============================================================================
+    
+    (function() {
+        const IDLE_TIMEOUT = {{ idle_timeout_ms }};  // 20 minutes in milliseconds
+        const WARNING_TIME = 2 * 60 * 1000;  // Show warning 2 minutes before logout
+        
+        let idleTimer;
+        let warningTimer;
+        let warningShown = false;
+        
+        // Track user activity
+        const activities = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+        
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            clearTimeout(warningTimer);
+            warningShown = false;
+            
+            // Remove warning if it exists
+            const existingWarning = document.getElementById('idle-warning');
+            if (existingWarning) {
+                existingWarning.remove();
+            }
+            
+            // Set warning timer (18 minutes from now)
+            warningTimer = setTimeout(showIdleWarning, IDLE_TIMEOUT - WARNING_TIME);
+            
+            // Set logout timer (20 minutes from now)
+            idleTimer = setTimeout(autoLogout, IDLE_TIMEOUT);
+        }
+        
+        function showIdleWarning() {
+            if (warningShown) return;
+            warningShown = true;
+            
+            // Create warning modal
+            const warningModal = document.createElement('div');
+            warningModal.id = 'idle-warning';
+            warningModal.innerHTML = `
+                <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                           background: rgba(0,0,0,0.7); z-index: 10000; display: flex; 
+                           justify-content: center; align-items: center;">
+                    <div style="background: white; padding: 30px; border-radius: 10px; 
+                               box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 400px; text-align: center;">
+                        <div style="color: #ff6b35; font-size: 24px; margin-bottom: 15px;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h3 style="color: #333; margin-bottom: 15px;">Session Expiring Soon</h3>
+                        <p style="color: #666; margin-bottom: 20px;">
+                            Your session will expire in <strong>2 minutes</strong> due to inactivity. 
+                            Click "Stay Logged In" to continue or you will be automatically logged out.
+                        </p>
+                        <div>
+                            <button id="stay-logged-in" style="background: #28a745; color: white; border: none; 
+                                   padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                                Stay Logged In
+                            </button>
+                            <button id="logout-now" style="background: #dc3545; color: white; border: none; 
+                                   padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                                Logout Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(warningModal);
+            
+            // Handle buttons
+            document.getElementById('stay-logged-in').onclick = function() {
+                warningModal.remove();
+                resetIdleTimer();  // Reset the timer
+            };
+            
+            document.getElementById('logout-now').onclick = function() {
+                performLogout();
+            };
+        }
+        
+        function autoLogout() {
+            performLogout();
+        }
+        
+        function performLogout() {
+            // Show logging out message
+            const logoutMsg = document.createElement('div');
+            logoutMsg.innerHTML = `
+                <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                           background: rgba(0,0,0,0.8); z-index: 10001; display: flex; 
+                           justify-content: center; align-items: center;">
+                    <div style="background: white; padding: 30px; border-radius: 10px; text-align: center;">
+                        <div style="color: #ff6b35; font-size: 24px; margin-bottom: 15px;">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </div>
+                        <h3 style="color: #333; margin-bottom: 10px;">Logging Out...</h3>
+                        <p style="color: #666;">You have been logged out due to inactivity.</p>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(logoutMsg);
+            
+            // Perform logout
+            setTimeout(function() {
+                window.location.href = '{{ url_for("logout") }}';
+            }, 1500);
+        }
+        
+        // Set up activity listeners
+        activities.forEach(function(event) {
+            document.addEventListener(event, resetIdleTimer, true);
+        });
+        
+        // Handle window/tab close - attempt to logout server-side
+        window.addEventListener('beforeunload', function(e) {
+            // Send logout signal using beacon (most reliable for tab close)
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon('{{ url_for("logout") }}', '');
+            }
+            
+            // Fallback: try synchronous request (may be blocked by browser)
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '{{ url_for("logout") }}', false); // synchronous
+                xhr.send();
+            } catch (e) {
+                // Ignore errors - browser may block this
+            }
+            
+            // Clear local session data
+            sessionStorage.clear();
+            localStorage.removeItem('user_session');
+        });
+        
+        // Also handle pagehide event (more reliable than beforeunload)
+        window.addEventListener('pagehide', function(e) {
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon('{{ url_for("logout") }}', '');
+            }
+        });
+        
+        // Handle page visibility change (tab switching, minimizing)
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                // User came back to the tab, reset timer
+                resetIdleTimer();
+            }
+        });
+        
+        // Initialize the idle timer
+        resetIdleTimer();
+        
+        console.log('Auto logout initialized: ' + (IDLE_TIMEOUT / 1000 / 60) + ' minute timeout');
+    })();
+    </script>
+</body>
+</html>

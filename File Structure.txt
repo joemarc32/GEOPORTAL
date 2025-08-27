@@ -1,0 +1,23 @@
+E:\WEBSITE\GEOPORTAL_Final with new database and graphs\
+├── app.py (151KB - SSL integrated)
+├── requirements.txt (Updated with SSL dependencies)
+├── tcwd_data.db (Database - 71MB)
+├── File Structure.txt
+│
+├── 🔐 SSL IMPLEMENTATION FILES:
+├── ssl_config.py (SSL configuration module)
+├── generate_ssl_certificate.py (Certificate generator)
+├── setup_ssl.py (Automated setup script)
+├── PRODUCTION_SSL_GUIDE.md (Production deployment guide)
+├── SSL_IMPLEMENTATION_GUIDE.md (Complete implementation guide)
+│
+├── uploads/ (Auto-created for file uploads)
+├── static/
+│   ├── style.css
+│   └── materials/logo.png
+└── templates/
+    ├── admin_dashboard.html
+    ├── error.html
+    ├── index.html
+    ├── login.html
+    └── manager_dashboard.html
