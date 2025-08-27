@@ -2,7 +2,6 @@
 import sqlite3
 import io
 import csv
-import pandas as pd
 from functools import lru_cache, wraps
 import time
 import hashlib
@@ -14,6 +13,86 @@ import re
 import html
 import bleach
 import os
+import json
+
+# Mock pandas replacement using native Python
+class MockPandas:
+    """Minimal pandas replacement using native Python and SQLite"""
+    
+    @staticmethod
+    def read_sql_query(query, conn, params=None):
+        """Execute SQL query and return MockDataFrame"""
+        cursor = conn.cursor()
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+        
+        columns = [description[0] for description in cursor.description]
+        rows = cursor.fetchall()
+        data = [dict(zip(columns, row)) for row in rows]
+        return MockDataFrame(data, columns)
+    
+    @staticmethod
+    def DataFrame(data, columns=None):
+        """Create MockDataFrame from data"""
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            # List of dictionaries
+            cols = columns or list(data[0].keys())
+            return MockDataFrame(data, cols)
+        return MockDataFrame(data, columns)
+    
+    @staticmethod
+    def isna(value):
+        """Check if value is NaN/None"""
+        return value is None or (isinstance(value, float) and value != value)
+    
+    class ExcelWriter:
+        """Mock Excel writer that falls back to CSV"""
+        def __init__(self, output, engine='xlsxwriter'):
+            self.output = output
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+
+class MockDataFrame:
+    """Minimal DataFrame replacement"""
+    
+    def __init__(self, data, columns=None):
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            self.data = data
+            self.columns = columns or list(data[0].keys())
+        else:
+            self.data = data or []
+            self.columns = columns or []
+    
+    def to_dict(self, orient='records'):
+        """Convert to dictionary format"""
+        if orient == 'records':
+            return self.data
+        return {'data': self.data, 'columns': self.columns}
+    
+    def to_csv(self, path_or_buf, index=False):
+        """Export to CSV"""
+        if hasattr(path_or_buf, 'write'):
+            fieldnames = self.columns
+            writer = csv.DictWriter(path_or_buf, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(self.data)
+        return path_or_buf
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            # Column access
+            return [row.get(key) for row in self.data]
+        return self.data[key]
+
+# Create mock pandas instance
+pd = MockPandas()
 
 # Optional geopandas - only import if available
 try:

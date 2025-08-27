@@ -1,5 +1,5 @@
-# TCWD GeoPortal - Minimal Stable Requirements
-# Python 3.10 compatible, focusing on core functionality
+# TCWD GeoPortal - Ultra Minimal Requirements (No Compilation)
+# Works with any Python version - zero compilation dependencies
 
 # Core Flask Framework
 Flask==2.3.3
@@ -12,10 +12,6 @@ click==8.1.7
 # Production WSGI Server
 gunicorn==21.2.0
 
-# Data Processing - Stable versions with guaranteed wheels
-pandas==1.5.3
-numpy==1.21.6
-
 # Basic Security
 bcrypt==4.0.1
 
@@ -24,3 +20,7 @@ requests==2.31.0
 
 # Environment Variables
 python-dotenv==1.0.0
+
+# Note: Removed pandas completely - using native Python + SQLite
+# All data processing done with built-in libraries
+# CSV module is built-in to Python
