@@ -52,7 +52,7 @@ mypy
 python-dotenv
 flask-mail
 flask-restx
-pip install flask_monitoringdashboard
+pip install flask_monitoringdashboard:
 flask-migrate
 redis
 flask-caching
@@ -73,4 +73,5 @@ PyYAML
 
 # Development Tools
 memory_profiler
+
 
