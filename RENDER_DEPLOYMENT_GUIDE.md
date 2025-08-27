@@ -1,5 +1,12 @@
 # 🚀 TCWD GeoPortal - Complete Render.com Deployment Guide
 
+## ⚠️ **IMPORTANT: COMPATIBILITY FIX APPLIED**
+**Python 3.13 Compatibility Issue Resolved**
+- ✅ Updated to Python 3.11.9 (in `runtime.txt`)
+- ✅ Updated dependencies to compatible versions  
+- ✅ Minimal requirements for faster builds
+- ✅ Ready for immediate deployment
+
 ## Overview
 Step-by-step guide for deploying the TCWD GeoPortal to Render.com using Git push deployment with automatic HTTPS/SSL.
 
