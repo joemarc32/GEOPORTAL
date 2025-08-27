@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
-# Render.com build script for TCWD GeoPortal
+# Render.com build script for TCWD GeoPortal - Python 3.10 Compatible
 
 echo "🏗️ Starting TCWD GeoPortal build process..."
 
-# Install Python dependencies
-echo "📦 Installing Python packages..."
+# Check Python version
+python --version
+
+# Upgrade pip to latest version
+echo "📦 Upgrading pip..."
 pip install --upgrade pip
 
-# Use production requirements if available, otherwise use full requirements
-if [ -f "requirements-render.txt" ]; then
-    echo "Using optimized requirements for Render..."
-    pip install -r requirements-render.txt
-else
-    echo "Using full requirements..."
-    pip install -r requirements.txt
-fi
+# Install Python dependencies with wheel preference
+echo "📦 Installing Python packages (preferring wheels to avoid compilation)..."
+pip install --only-binary=all -r requirements.txt
 
 # Create necessary directories
 echo "📁 Creating directories..."

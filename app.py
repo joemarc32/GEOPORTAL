@@ -3,7 +3,6 @@ import sqlite3
 import io
 import csv
 import pandas as pd
-import geopandas as gpd
 from functools import lru_cache, wraps
 import time
 import hashlib
@@ -15,6 +14,14 @@ import re
 import html
 import bleach
 import os
+
+# Optional geopandas - only import if available
+try:
+    import geopandas as gpd
+    GEOPANDAS_AVAILABLE = True
+except ImportError:
+    GEOPANDAS_AVAILABLE = False
+    print("⚠️ GeoPandas not available - GPKG upload functionality will be limited")
 
 # Optional SSL support - only import if available
 try:
@@ -3338,7 +3345,12 @@ def api_admin_database_upload():
             temp_filename = temp_file.name
         
         try:
-            # Read GPKG file using GeoPandas
+            # Read GPKG file using GeoPandas (if available)
+            if not GEOPANDAS_AVAILABLE:
+                return jsonify({
+                    'error': 'GPKG upload functionality requires GeoPandas library which is not available in this deployment. Please upload data in CSV format instead.'
+                }), 400
+            
             gdf = gpd.read_file(temp_filename)
         except Exception as e:
             os.unlink(temp_filename)  # Clean up temp file
